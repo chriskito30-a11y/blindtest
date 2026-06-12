@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Écran · BlindTest Master</title>
+  <meta name="theme-color" content="#08050d" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BlindTest" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="screen-bg">
+  <main id="screenPanel" class="screen-stage">
+    <section id="missingRoom" class="screen-message" hidden>
+      <h1>Partie introuvable</h1>
+      <p>Le lien écran doit contenir une partie.</p>
+    </section>
+
+    <section id="screenContent" class="screen-content" hidden>
+      <header class="screen-header">
+        <p id="screenSubtitle" class="screen-subtitle">Blind test live</p>
+        <h1 id="screenTitle">BlindTest Master</h1>
+      </header>
+
+      <div class="screen-status-row">
+        <div>
+          <div id="screenStatus" class="screen-status">En attente</div>
+          <p id="screenRoundInfo" class="muted screen-muted">Scanne le QR code pour rejoindre la partie.</p>
+        </div>
+        <div id="screenTimer" class="screen-timer">--</div>
+      </div>
+
+      <section class="screen-main-grid">
+        <div class="screen-left">
+          <section id="winnerPanel" class="winner-panel" hidden>
+            <p class="eyebrow">Premier bon répondant</p>
+            <h2 id="winnerName">—</h2>
+            <p id="winnerTeam" class="muted"></p>
+          </section>
+
+          <section id="answerRevealPanel" class="answer-reveal-panel" hidden>
+            <p class="eyebrow">Réponse</p>
+            <h2 id="revealedAnswer">—</h2>
+          </section>
+
+          <div class="progress-wrap screen-progress"><div id="progressBar" class="progress-bar"></div></div>
+
+          <section class="join-qr-panel">
+            <div>
+              <p class="eyebrow">Rejoindre</p>
+              <p id="playerCount" class="join-count">0 joueur connecté</p>
+            </div>
+            <img id="joinQr" class="screen-qr" alt="QR code pour rejoindre" />
+          </section>
+        </div>
+
+        <section class="screen-scoreboard" id="screenScoreboard"></section>
+      </section>
+    </section>
+  </main>
+
+  <footer class="app-credit"><span>© 2026 — Application créée par Christophe Gros - <a href="https://www.faistonshow.fr" target="_blank" rel="noopener">Fais Ton Show</a></span></footer>
+  <script type="module" src="./screen.js"></script>
+  <script type="module" src="./pwa.js"></script>
+</body>
+</html>

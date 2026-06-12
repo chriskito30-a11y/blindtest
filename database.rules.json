@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "rooms": {
+      ".read": true,
+      ".write": true
+    },
+    "blindRooms": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

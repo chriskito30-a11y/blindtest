@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Réglages · BlindTest Master</title>
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BlindTest" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="app-bg">
+  <main class="page-shell">
+    <section id="missingRoom" class="panel-card" hidden>
+      <h1>Partie introuvable</h1>
+      <p>Retourne à l'accueil pour créer ou ouvrir une partie.</p>
+      <a class="primary-link" href="./index.html">Accueil</a>
+    </section>
+
+    <section id="authPanel" class="auth-card panel-card" hidden>
+      <p class="eyebrow">Accès réglages</p>
+      <h1>Mot de passe arbitre</h1>
+      <p class="muted">Partie : <strong id="authRoomName"></strong></p>
+      <form id="authForm" class="form-grid">
+        <label><span>Mot de passe</span><input id="authPassword" type="password" autocomplete="current-password" required /></label>
+        <button class="primary-btn" type="submit">Entrer</button>
+        <p id="authError" class="status-text error"></p>
+      </form>
+    </section>
+
+    <section id="settingsPanel" hidden>
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Réglages de partie</p>
+          <h1 id="pageTitle">Configuration</h1>
+          <p class="muted">Prépare le blind test, les équipes et les liens d’invitation.</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="ghost-link" id="openAdminLink" href="#">Arbitre</a>
+          <a class="ghost-link" id="openScreenLink" href="#" target="_blank" rel="noopener">Écran</a>
+          <a class="ghost-link" href="./index.html">Accueil</a>
+        </div>
+      </div>
+
+      <div class="settings-layout">
+        <form id="settingsForm" class="panel-card form-grid settings-form">
+          <h2>Identité & règles</h2>
+          <label><span>Nom affiché</span><input id="titleInput" placeholder="BlindTest Master" /></label>
+          <label><span>Sous-titre</span><input id="subtitleInput" placeholder="Soirée Fais Ton Show" /></label>
+
+          <div class="two-cols">
+            <label><span>Durée par manche</span><input id="durationInput" type="number" min="5" max="180" step="1" /></label>
+            <label><span>Tentatives par joueur</span><input id="maxAnswersInput" type="number" min="1" max="5" step="1" /></label>
+          </div>
+
+          <label>
+            <span>Réponse attendue</span>
+            <select id="answerModeInput">
+              <option value="artist_title">Artiste + titre</option>
+              <option value="title">Titre uniquement</option>
+              <option value="artist">Artiste uniquement</option>
+            </select>
+          </label>
+
+          <div class="two-cols three-soft">
+            <label><span>Points 1er bon</span><input id="pointsFirstInput" type="number" min="0" max="99" /></label>
+            <label><span>Points 2e bon</span><input id="pointsSecondInput" type="number" min="0" max="99" /></label>
+            <label><span>Points 3e bon</span><input id="pointsThirdInput" type="number" min="0" max="99" /></label>
+          </div>
+
+          <label class="check-row"><input id="allowTeamCreationInput" type="checkbox" /> <span>Autoriser les joueurs à créer leur équipe</span></label>
+          <label class="check-row"><input id="revealAnswerInput" type="checkbox" /> <span>Afficher la réponse sur l’écran quand l’arbitre révèle</span></label>
+
+          <div class="actions-row sticky-actions">
+            <button class="primary-btn" type="submit">Enregistrer les réglages</button>
+          </div>
+          <p id="saveStatus" class="status-text" role="status"></p>
+        </form>
+
+        <aside class="side-stack">
+          <section class="panel-card team-manager-card">
+            <h2>Équipes</h2>
+            <form id="teamForm" class="team-form">
+              <input id="teamNameInput" placeholder="Nom de l’équipe" />
+              <input id="teamColorInput" type="color" value="#ff4d6d" aria-label="Couleur de l’équipe" />
+              <button class="secondary-btn" type="submit">Ajouter</button>
+            </form>
+            <p id="teamStatus" class="status-text"></p>
+            <div id="teamsList" class="teams-list"></div>
+          </section>
+
+          <section class="panel-card links-card">
+            <h2>Liens & QR codes</h2>
+            <div class="share-grid compact-share">
+              <article class="share-card">
+                <strong>Rejoindre la partie</strong>
+                <a id="playerOpenLink" class="share-open" href="#" target="_blank" rel="noopener">Ouvrir</a>
+                <input id="playerLink" class="share-url" readonly />
+                <button type="button" data-copy="playerLink">Copier</button>
+                <img id="playerQr" class="qr-code" alt="QR code joueurs" loading="lazy" />
+              </article>
+              <article class="share-card">
+                <strong>Écran vidéoprojecteur</strong>
+                <a id="screenOpenLink" class="share-open" href="#" target="_blank" rel="noopener">Ouvrir</a>
+                <input id="screenLink" class="share-url" readonly />
+                <button type="button" data-copy="screenLink">Copier</button>
+                <img id="screenQr" class="qr-code" alt="QR code écran" loading="lazy" />
+              </article>
+              <article class="share-card">
+                <strong>Arbitre</strong>
+                <a id="adminOpenLink" class="share-open" href="#" target="_blank" rel="noopener">Ouvrir</a>
+                <input id="adminLinkInput" class="share-url" readonly />
+                <button type="button" data-copy="adminLinkInput">Copier</button>
+              </article>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-credit"><span>© 2026 — Application créée par Christophe Gros - <a href="https://www.faistonshow.fr" target="_blank" rel="noopener">Fais Ton Show</a></span></footer>
+  <script type="module" src="./settings.js"></script>
+  <script type="module" src="./pwa.js"></script>
+</body>
+</html>

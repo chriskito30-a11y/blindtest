@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Arbitre · BlindTest Master</title>
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BlindTest" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="app-bg">
+  <main class="page-shell admin-shell">
+    <section id="missingRoom" class="panel-card" hidden>
+      <h1>Partie introuvable</h1>
+      <p>Retourne à l'accueil pour créer ou ouvrir une partie.</p>
+      <a class="primary-link" href="./index.html">Accueil</a>
+    </section>
+
+    <section id="authPanel" class="auth-card panel-card" hidden>
+      <p class="eyebrow">Accès arbitre</p>
+      <h1>Mot de passe arbitre</h1>
+      <p class="muted">Partie : <strong id="authRoomName"></strong></p>
+      <form id="authForm" class="form-grid">
+        <label><span>Mot de passe</span><input id="authPassword" type="password" autocomplete="current-password" required /></label>
+        <button class="primary-btn" type="submit">Entrer</button>
+        <p id="authError" class="status-text error"></p>
+      </form>
+    </section>
+
+    <section id="adminPanel" hidden>
+      <div class="topbar">
+        <div>
+          <p class="eyebrow">Console arbitre</p>
+          <h1 id="adminTitle">BlindTest Master</h1>
+          <p id="adminSubtitle" class="muted">Prépare la manche, lance YouTube, valide les réponses.</p>
+        </div>
+        <div class="topbar-actions">
+          <a class="ghost-link" id="settingsLink" href="#">Réglages</a>
+          <a class="ghost-link" id="screenLink" href="#" target="_blank" rel="noopener">Écran</a>
+          <a class="ghost-link" id="voteLink" href="#" target="_blank" rel="noopener">Joueurs</a>
+        </div>
+      </div>
+
+      <div class="admin-layout">
+        <section class="panel-card youtube-card">
+          <div class="section-head">
+            <div><h2>Recherche & lecteur YouTube</h2><p class="muted">Optionnel : cherche une vidéo via API ou colle simplement un lien YouTube.</p></div>
+          </div>
+
+          <div class="api-key-row">
+            <label><span>Clé YouTube Data API, optionnelle</span><input id="youtubeApiKeyInput" type="password" placeholder="Coller une clé API restreinte par domaine" /></label>
+            <button id="saveApiKeyBtn" class="ghost-btn" type="button">Mémoriser sur cet appareil</button>
+          </div>
+
+          <form id="youtubeSearchForm" class="search-row">
+            <input id="youtubeQueryInput" placeholder="ex : Goldman je te donne" />
+            <button class="secondary-btn" type="submit">Rechercher</button>
+            <button id="openYoutubeBtn" class="ghost-btn" type="button">Ouvrir YouTube</button>
+          </form>
+          <p id="youtubeStatus" class="status-text"></p>
+          <div id="youtubeResults" class="youtube-results"></div>
+
+          <div class="manual-video-box">
+            <label><span>Lien YouTube ou ID vidéo</span><input id="youtubeUrlInput" placeholder="https://www.youtube.com/watch?v=..." /></label>
+            <button id="useYoutubeUrlBtn" class="ghost-btn" type="button">Utiliser cette vidéo</button>
+          </div>
+
+          <div class="player-frame-wrap">
+            <div id="youtubePlayer" class="youtube-player-placeholder">Sélectionne une vidéo pour afficher le lecteur.</div>
+          </div>
+          <div class="player-controls">
+            <button id="cueBtn" class="ghost-btn" type="button">Préparer au timecode</button>
+            <button id="playBtn" class="primary-btn" type="button">Lecture</button>
+            <button id="pauseBtn" class="ghost-btn" type="button">Pause</button>
+            <button id="stopBtn" class="ghost-btn" type="button">Stop</button>
+          </div>
+          <p id="selectedVideoLabel" class="muted">Aucune vidéo sélectionnée.</p>
+        </section>
+
+        <section class="panel-card round-card">
+          <h2>Manche</h2>
+          <form id="roundForm" class="form-grid">
+            <div class="two-cols">
+              <label><span>Artiste attendu</span><input id="artistInput" placeholder="ex : Jean-Jacques Goldman" /></label>
+              <label><span>Titre attendu</span><input id="titleInput" placeholder="ex : Je te donne" /></label>
+            </div>
+            <div class="two-cols three-soft">
+              <label><span>Début extrait, secondes</span><input id="youtubeStartInput" type="number" min="0" step="1" value="0" /></label>
+              <label><span>Durée, secondes</span><input id="durationInput" type="number" min="5" max="180" step="1" /></label>
+              <label><span>Mode</span><select id="answerModeInput"><option value="artist_title">Artiste + titre</option><option value="title">Titre</option><option value="artist">Artiste</option></select></label>
+            </div>
+          </form>
+
+          <div class="round-state-box">
+            <div id="timerOrb" class="timer-orb">--</div>
+            <div><h3 id="roundState">En attente</h3><p id="roundInfo" class="muted">Prépare une vidéo et une réponse, puis lance la manche.</p></div>
+          </div>
+
+          <div class="actions-column">
+            <button id="startRoundBtn" class="primary-btn big-btn">Lancer la manche + YouTube</button>
+            <div class="actions-row">
+              <button id="closeRoundBtn" class="secondary-btn" type="button">Fermer les réponses</button>
+              <button id="revealRoundBtn" class="ghost-btn" type="button">Révéler</button>
+              <button id="resetRoundBtn" class="danger-btn" type="button">Réinitialiser manche</button>
+            </div>
+          </div>
+          <p id="roundStatus" class="status-text"></p>
+        </section>
+
+        <section class="panel-card scoreboard-card">
+          <h2>Classement équipes</h2>
+          <div id="scoreboardList" class="scoreboard-list"></div>
+          <button id="resetScoresBtn" class="danger-btn" type="button">Remettre tous les scores à 0</button>
+        </section>
+
+        <section class="panel-card answers-card">
+          <div class="section-head">
+            <div><h2>Réponses en direct</h2><p id="answersSummary" class="muted">Aucune réponse.</p></div>
+          </div>
+          <div id="answersList" class="answers-list"></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <footer class="app-credit"><span>© 2026 — Application créée par Christophe Gros - <a href="https://www.faistonshow.fr" target="_blank" rel="noopener">Fais Ton Show</a></span></footer>
+  <script type="module" src="./admin.js"></script>
+  <script type="module" src="./pwa.js"></script>
+</body>
+</html>

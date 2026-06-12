@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Joueur · BlindTest Master</title>
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BlindTest" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="app-bg vote-body">
+  <main class="vote-shell">
+    <section id="missingRoom" class="panel-card" hidden>
+      <h1>Partie introuvable</h1>
+      <p>Le lien joueur doit contenir une partie.</p>
+    </section>
+
+    <section id="joinPanel" class="vote-card" hidden>
+      <p class="eyebrow">BlindTest Master</p>
+      <h1 id="joinTitle">Rejoins la partie</h1>
+      <p id="joinSubtitle" class="muted">Entre ton prénom et choisis ton équipe.</p>
+      <form id="joinForm" class="form-grid">
+        <label><span>Ton prénom / pseudo</span><input id="playerNameInput" autocomplete="name" maxlength="32" required /></label>
+        <label id="teamSelectLabel"><span>Ton équipe</span><select id="teamSelect" required></select></label>
+        <div id="lockedTeamBox" class="locked-team-box" hidden></div>
+        <div id="createTeamBox" class="create-team-box" hidden>
+          <label><span>Créer une nouvelle équipe</span><input id="newTeamNameInput" placeholder="ex : Les Micros d'Or" maxlength="36" /></label>
+          <button id="createTeamBtn" class="ghost-btn" type="button">Créer cette équipe</button>
+        </div>
+        <button class="primary-btn big-btn" type="submit">Rejoindre le blind test</button>
+        <p id="joinStatus" class="status-text"></p>
+      </form>
+    </section>
+
+    <section id="playerPanel" class="vote-card player-game-card" hidden>
+      <div class="player-topline">
+        <p class="eyebrow" id="playerTeamName">Équipe</p>
+        <button id="changePlayerBtn" class="ghost-btn" type="button">Changer</button>
+      </div>
+      <h1 id="playerGameTitle">BlindTest Master</h1>
+      <p id="playerNameLabel" class="muted"></p>
+      <div id="voteTimer" class="vote-timer">En attente</div>
+      <p id="voteMessage" class="vote-message">Attends que l’arbitre lance la manche.</p>
+
+      <form id="answerForm" class="answer-form">
+        <label><span id="answerLabel">Ta réponse</span><input id="answerInput" autocomplete="off" placeholder="Tape ta réponse ici" /></label>
+        <button id="sendAnswerBtn" class="primary-btn big-btn" type="submit">Envoyer</button>
+      </form>
+      <div id="answerHistory" class="answer-history"></div>
+    </section>
+  </main>
+
+  <footer class="app-credit"><span>© 2026 — Application créée par Christophe Gros - <a href="https://www.faistonshow.fr" target="_blank" rel="noopener">Fais Ton Show</a></span></footer>
+  <script type="module" src="./vote.js"></script>
+  <script type="module" src="./pwa.js"></script>
+</body>
+</html>

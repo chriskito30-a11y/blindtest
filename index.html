@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>BlindTest Master</title>
+  <meta name="description" content="PWA de blind test live avec équipes, réponses téléphone, écran vidéoprojecteur et lecteur YouTube côté arbitre." />
+  <meta name="theme-color" content="#7c3aed" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="BlindTest" />
+  <link rel="manifest" href="./manifest.webmanifest" />
+  <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
+  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png" />
+  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body class="app-bg">
+  <main class="page-shell index-shell">
+    <section class="hero-card glow-card">
+      <p class="eyebrow">BlindTest Master</p>
+      <h1>Crée un blind test live avec équipes, téléphones et écran géant.</h1>
+      <p class="lead">L’arbitre lance les manches, les joueurs répondent depuis leur téléphone, les points vont aux équipes et le vidéoprojecteur affiche le chrono, le gagnant et le classement.</p>
+
+      <form id="roomForm" class="form-grid big-form">
+        <label>
+          <span>Nom de la partie</span>
+          <input id="roomInput" autocomplete="off" placeholder="ex : blind-test-fts" required />
+          <small>Utilisé dans les liens. Lettres, chiffres et tirets uniquement.</small>
+        </label>
+        <label>
+          <span>Mot de passe arbitre</span>
+          <input id="passwordInput" type="password" autocomplete="new-password" placeholder="Pour admin et réglages" required minlength="4" />
+          <small>Il protège les pages arbitre et réglages. Les joueurs ne le voient pas.</small>
+        </label>
+        <div class="actions-row">
+          <button class="primary-btn" type="submit">Créer / ouvrir la partie</button>
+          <button class="ghost-btn" type="button" id="randomRoomBtn">Nom aléatoire</button>
+          <button class="ghost-btn install-pwa-btn" type="button" id="installPwaBtn" hidden>Installer l’app</button>
+        </div>
+        <p id="status" class="status-text" role="status"></p>
+      </form>
+    </section>
+
+    <section class="feature-grid">
+      <article class="mini-card"><strong>1. Prépare</strong><span>Durée, points, équipes, liens privés ou QR codes par équipe.</span></article>
+      <article class="mini-card"><strong>2. Joue</strong><span>YouTube en iframe côté arbitre, timecode de départ et chrono synchronisé.</span></article>
+      <article class="mini-card"><strong>3. Projette</strong><span>Écran public avec classement, gagnant de la manche et révélation de la réponse.</span></article>
+    </section>
+  </main>
+
+  <footer class="app-credit" aria-label="Crédits de l'application">
+    <span>© 2026 — Application créée par Christophe Gros - <a href="https://www.faistonshow.fr" target="_blank" rel="noopener">Fais Ton Show</a></span>
+  </footer>
+
+  <script type="module" src="./index.js"></script>
+  <script type="module" src="./pwa.js"></script>
+</body>
+</html>
