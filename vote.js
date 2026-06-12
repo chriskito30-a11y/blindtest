@@ -23,11 +23,13 @@ import {
 const roomId = getRoomIdFromUrl();
 const lockedTeamId = getTeamIdFromUrl();
 const playerId = getDeviceId();
+const NEW_TEAM_VALUE = "__new_team__";
 
 let config = safeConfig();
 let teams = [];
 let currentRound = {};
 let player = getSavedPlayer(roomId);
+let pendingTeamId = "";
 let tick = null;
 let seenRoundId = "";
 
@@ -43,6 +45,7 @@ function boot() {
 
   onValue(ref(db, roomPath(roomId, "config")), (snap) => {
     config = safeConfig(snap.val() || {});
+    renderTeamSelect();
     render();
   });
   onValue(ref(db, roomPath(roomId, "teams")), (snap) => {
@@ -68,11 +71,13 @@ function boot() {
 function bindJoin() {
   $("#joinForm").addEventListener("submit", joinPlayer);
   $("#createTeamBtn").addEventListener("click", createPlayerTeam);
+  $("#teamSelect").addEventListener("change", renderTeamCreateBox);
   $("#changePlayerBtn").addEventListener("click", () => {
     player = null;
     savePlayer(roomId, null);
     $("#playerPanel").hidden = true;
     $("#joinPanel").hidden = false;
+    renderTeamSelect();
     render();
   });
   $("#answerForm").addEventListener("submit", sendAnswer);
@@ -85,16 +90,54 @@ function bindJoin() {
 function renderTeamSelect() {
   const select = $("#teamSelect");
   if (!select) return;
-  const current = select.value || player?.teamId || lockedTeamId;
-  select.innerHTML = "";
-  teams.forEach((team) => renderOption(select, team.id, team.name));
-  if (current && teams.some((team) => team.id === current)) select.value = current;
 
   const locked = lockedTeamId && teams.find((team) => team.id === lockedTeamId);
+  const previous = pendingTeamId || select.value || player?.teamId || "";
+
+  select.innerHTML = "";
+
+  if (locked) {
+    renderOption(select, locked.id, locked.name);
+    select.value = locked.id;
+  } else {
+    if (teams.length) {
+      teams.forEach((team) => renderOption(select, team.id, team.name));
+    } else {
+      const option = document.createElement("option");
+      option.value = "";
+      option.textContent = config.allowTeamCreation ? "Aucune équipe créée pour le moment" : "Aucune équipe disponible";
+      option.disabled = true;
+      select.appendChild(option);
+    }
+
+    if (config.allowTeamCreation) {
+      renderOption(select, NEW_TEAM_VALUE, "➕ Créer une nouvelle équipe");
+    }
+
+    if (previous && teams.some((team) => team.id === previous)) {
+      select.value = previous;
+      pendingTeamId = "";
+    } else if (config.allowTeamCreation && (!teams.length || previous === NEW_TEAM_VALUE)) {
+      select.value = NEW_TEAM_VALUE;
+    } else if (teams.length) {
+      select.value = teams[0].id;
+    } else {
+      select.value = "";
+    }
+  }
+
   $("#teamSelectLabel").hidden = Boolean(locked);
   $("#lockedTeamBox").hidden = !locked;
   if (locked) $("#lockedTeamBox").textContent = `Tu rejoins : ${locked.name}`;
-  $("#createTeamBox").hidden = !config.allowTeamCreation;
+
+  renderTeamCreateBox();
+}
+
+function renderTeamCreateBox() {
+  const locked = lockedTeamId && teams.find((team) => team.id === lockedTeamId);
+  const canCreate = config.allowTeamCreation && !locked;
+  const wantsCreate = $("#teamSelect")?.value === NEW_TEAM_VALUE || !teams.length;
+  $("#createTeamBox").hidden = !(canCreate && wantsCreate);
 }
 
 async function createPlayerTeam() {
@@ -102,26 +145,66 @@ async function createPlayerTeam() {
   setStatus($("#joinStatus"), "Création de l'équipe...");
   try {
     const id = await createTeam(roomId, name);
+    const teamSnap = await get(ref(db, roomPath(roomId, `teams/${id}`)));
+    const team = teamSnap.val() || { name, score: 0, createdAt: Date.now() };
+    pendingTeamId = id;
+    teams = safeTeams({
+      ...Object.fromEntries(teams.map((item) => [item.id, item])),
+      [id]: team
+    });
     $("#newTeamNameInput").value = "";
+    renderTeamSelect();
     $("#teamSelect").value = id;
-    setStatus($("#joinStatus"), "Équipe créée. Tu peux rejoindre la partie.", "success");
+    pendingTeamId = "";
+    renderTeamCreateBox();
+    setStatus($("#joinStatus"), "Équipe créée et sélectionnée. Tu peux rejoindre la partie.", "success");
   } catch (error) {
     setStatus($("#joinStatus"), error.message || "Impossible de créer l'équipe.", "error");
   }
 }
 
+async function resolveTeamForJoin() {
+  const locked = lockedTeamId && teams.find((team) => team.id === lockedTeamId);
+  if (locked) return locked;
+
+  let teamId = $("#teamSelect").value;
+  if (config.allowTeamCreation && (teamId === NEW_TEAM_VALUE || (!teamId && $("#newTeamNameInput").value.trim()))) {
+    const name = $("#newTeamNameInput").value.trim();
+    const id = await createTeam(roomId, name);
+    const teamSnap = await get(ref(db, roomPath(roomId, `teams/${id}`)));
+    const team = { id, ...(teamSnap.val() || { name, score: 0, createdAt: Date.now() }) };
+    pendingTeamId = id;
+    teams = safeTeams({
+      ...Object.fromEntries(teams.map((item) => [item.id, item])),
+      [id]: team
+    });
+    $("#newTeamNameInput").value = "";
+    renderTeamSelect();
+    return teams.find((item) => item.id === id) || team;
+  }
+
+  return teams.find((item) => item.id === teamId) || null;
+}
+
 async function joinPlayer(event) {
   event.preventDefault();
   const name = $("#playerNameInput").value.trim().slice(0, 32);
-  const locked = lockedTeamId && teams.find((team) => team.id === lockedTeamId);
-  const teamId = locked ? lockedTeamId : $("#teamSelect").value;
-  const team = teams.find((item) => item.id === teamId);
   if (!name) {
     setStatus($("#joinStatus"), "Entre ton prénom ou pseudo.", "error");
     return;
   }
+
+  setStatus($("#joinStatus"), "Connexion à la partie...");
+  let team;
+  try {
+    team = await resolveTeamForJoin();
+  } catch (error) {
+    setStatus($("#joinStatus"), error.message || "Impossible de créer l'équipe.", "error");
+    return;
+  }
+
   if (!team) {
-    setStatus($("#joinStatus"), "Choisis une équipe.", "error");
+    setStatus($("#joinStatus"), config.allowTeamCreation ? "Choisis une équipe ou crée ta propre équipe." : "Choisis une équipe.", "error");
     return;
   }
 
@@ -130,7 +213,7 @@ async function joinPlayer(event) {
   const payload = {
     id: playerId,
     name,
-    teamId,
+    teamId: team.id,
     teamName: team.name,
     score: existingScore,
     joinedAt: existing.val()?.joinedAt || Date.now(),
@@ -175,7 +258,9 @@ async function sendAnswer(event) {
 
 function render() {
   $("#joinTitle").textContent = config.title;
-  $("#joinSubtitle").textContent = config.subtitle;
+  $("#joinSubtitle").textContent = config.allowTeamCreation
+    ? "Entre ton prénom, rejoins une équipe existante ou crée ta propre équipe."
+    : "Entre ton prénom et choisis ton équipe.";
 
   if (player?.id && $("#playerPanel").hidden && teams.length) {
     const teamExists = teams.some((team) => team.id === player.teamId);

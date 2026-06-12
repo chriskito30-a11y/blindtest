@@ -25,14 +25,18 @@
     <section id="joinPanel" class="vote-card" hidden>
       <p class="eyebrow">BlindTest Master</p>
       <h1 id="joinTitle">Rejoins la partie</h1>
-      <p id="joinSubtitle" class="muted">Entre ton prénom et choisis ton équipe.</p>
+      <p id="joinSubtitle" class="muted">Entre ton prénom, rejoins une équipe existante ou crée ta propre équipe.</p>
       <form id="joinForm" class="form-grid">
         <label><span>Ton prénom / pseudo</span><input id="playerNameInput" autocomplete="name" maxlength="32" required /></label>
         <label id="teamSelectLabel"><span>Ton équipe</span><select id="teamSelect" required></select></label>
         <div id="lockedTeamBox" class="locked-team-box" hidden></div>
         <div id="createTeamBox" class="create-team-box" hidden>
-          <label><span>Créer une nouvelle équipe</span><input id="newTeamNameInput" placeholder="ex : Les Micros d'Or" maxlength="36" /></label>
-          <button id="createTeamBtn" class="ghost-btn" type="button">Créer cette équipe</button>
+          <div>
+            <strong>Créer une nouvelle équipe</strong>
+            <p class="muted small-note">Tu peux créer une équipe en plus des équipes déjà présentes. Elle apparaîtra aussi sur l'écran et dans le classement.</p>
+          </div>
+          <label><span>Nom de la nouvelle équipe</span><input id="newTeamNameInput" placeholder="ex : Les Micros d'Or" maxlength="36" /></label>
+          <button id="createTeamBtn" class="ghost-btn" type="button">Créer et sélectionner cette équipe</button>
         </div>
         <button class="primary-btn big-btn" type="submit">Rejoindre le blind test</button>
         <p id="joinStatus" class="status-text"></p>

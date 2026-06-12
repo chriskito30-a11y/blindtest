@@ -53,6 +53,7 @@ h2 { font-size: clamp(1.25rem, 2.2vw, 1.75rem); letter-spacing: -.035em; }
 h3 { font-size: 1.25rem; margin-bottom: 6px; }
 .lead { color: var(--muted); font-size: clamp(1.05rem, 2vw, 1.34rem); max-width: 860px; line-height: 1.55; }
 .muted, small { color: var(--muted); }
+.small-note { margin: 4px 0 0; font-size: .92rem; line-height: 1.45; }
 .form-grid { display: grid; gap: 18px; }
 .big-form { margin-top: 34px; max-width: 780px; }
 label { display: grid; gap: 8px; font-weight: 850; }
@@ -164,7 +165,11 @@ button:disabled { opacity: .48; cursor: not-allowed; transform: none; }
 .join-qr-panel { display: flex; justify-content: space-between; align-items: center; gap: 18px; }
 .join-count { font-size: 1.35rem; font-weight: 900; margin: 0; }
 .screen-qr { width: min(28vw, 220px); border-radius: 22px; background: white; padding: 10px; }
-.screen-scoreboard { display: grid; gap: 14px; align-content: start; }
+.screen-scoreboard { display: grid; gap: 14px; align-content: start; max-height: calc(100dvh - 230px); overflow: auto; padding-right: 6px; }
+.screen-scoreboard.many-teams { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.screen-scoreboard.many-teams .screen-team-card { padding: clamp(14px, 1.8vw, 22px); }
+.screen-scoreboard.many-teams .screen-team-card h2 { font-size: clamp(1.4rem, 2.7vw, 2.8rem); }
+.screen-scoreboard.many-teams .screen-team-score { font-size: clamp(3rem, 6vw, 5.8rem); }
 .screen-team-card { position: relative; overflow: hidden; border: 1px solid color-mix(in srgb, var(--team), white 20%); border-left: 10px solid var(--team); border-radius: var(--radius); padding: clamp(18px, 2.4vw, 30px); background: linear-gradient(135deg, color-mix(in srgb, var(--team), transparent 86%), rgba(255,255,255,.06)); box-shadow: var(--shadow); }
 .screen-rank { color: var(--gold); font-weight: 1000; }
 .screen-team-card h2 { font-size: clamp(1.8rem, 3.4vw, 3.8rem); line-height: .98; margin: 6px 0 10px; }
@@ -172,7 +177,7 @@ button:disabled { opacity: .48; cursor: not-allowed; transform: none; }
 .app-credit { position: fixed; z-index: 20; left: 50%; bottom: 10px; transform: translateX(-50%); width: min(100% - 24px, 980px); display: flex; justify-content: center; gap: 10px; color: rgba(255,255,255,.58); font-size: .82rem; text-align: center; pointer-events: none; }
 .app-credit a { color: rgba(255,255,255,.82); pointer-events: auto; }
 @media (max-width: 920px) {
-  .feature-grid, .settings-layout, .admin-layout, .screen-main-grid, .two-cols, .three-soft { grid-template-columns: 1fr; }
+  .feature-grid, .settings-layout, .admin-layout, .screen-main-grid, .two-cols, .three-soft, .screen-scoreboard.many-teams { grid-template-columns: 1fr; }
   .topbar, .screen-status-row, .join-qr-panel { flex-direction: column; align-items: stretch; }
   .search-row, .manual-video-box, .api-key-row, .team-form { grid-template-columns: 1fr; }
   .answers-card, .youtube-card { grid-column: auto; }

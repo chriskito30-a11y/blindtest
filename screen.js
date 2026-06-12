@@ -132,6 +132,7 @@ function renderReveal() {
 function renderScoreboard() {
   const board = $("#screenScoreboard");
   board.innerHTML = "";
+  board.classList.toggle("many-teams", teams.length > 6);
   teams.forEach((team, index) => {
     const count = players.filter((player) => player.teamId === team.id).length;
     const card = document.createElement("article");
