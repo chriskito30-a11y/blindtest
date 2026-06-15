@@ -276,7 +276,7 @@ function render() {
   $("#playerTeamName").textContent = team?.name || player.teamName || "Équipe";
   $("#playerTeamName").style.color = team?.color || "";
   $("#playerNameLabel").textContent = `${player.name} · ${answerModeLabel(currentRound.answerMode || config.answerMode)}`;
-  $("#answerLabel").textContent = `Ta réponse (${answerModeLabel(currentRound.answerMode || config.answerMode)})`;
+  $("#answerLabel").textContent = currentRound.answerMode === "artist_title" ? "Ta réponse : artiste, titre ou les deux" : `Ta réponse (${answerModeLabel(currentRound.answerMode || config.answerMode)})`;
 
   const remaining = remainingSeconds(currentRound);
   const open = isRoundOpen(currentRound);
@@ -289,14 +289,14 @@ function render() {
 
   if (open) {
     $("#voteTimer").textContent = formatTimer(remaining);
-    $("#voteMessage").textContent = attemptsLeft > 0 ? `Réponds vite ! Tentative restante : ${attemptsLeft}` : "Réponse envoyée. Attends la validation de l’arbitre.";
+    $("#voteMessage").textContent = attemptsLeft > 0 ? `Réponds vite ! Tentatives restantes : ${attemptsLeft}. Tu peux tenter l’artiste, le titre ou les deux.` : "Limite de réponses atteinte pour cette manche.";
   } else if (currentRound?.status === "revealed" && currentRound?.reveal) {
-    $("#voteTimer").textContent = currentRound?.winnerAnswerId ? "Gagné !" : "Révélé";
+    $("#voteTimer").textContent = currentRound?.winnerAnswerId ? "Trouvé !" : "Révélé";
     const expected = [currentRound.revealedArtist, currentRound.revealedTitle].filter(Boolean).join(" — ");
     $("#voteMessage").textContent = expected ? `Réponse : ${expected}` : "La réponse a été révélée.";
   } else if (currentRound?.active && remaining <= 0) {
     $("#voteTimer").textContent = "Terminé";
-    $("#voteMessage").textContent = "Temps écoulé. Attends la validation de l’arbitre.";
+    $("#voteMessage").textContent = "Temps écoulé. La réponse va s’afficher.";
   } else {
     $("#voteTimer").textContent = "En attente";
     $("#voteMessage").textContent = "Attends que l’arbitre lance la manche.";
@@ -314,7 +314,11 @@ function renderHistory(answers) {
     item.className = "answer-history-item";
     if (answer.accepted) item.classList.add("accepted");
     if (answer.refused) item.classList.add("refused");
-    item.textContent = answer.accepted ? `✅ ${answer.text} (+${answer.pointsAwarded})` : answer.refused ? `❌ ${answer.text}` : `Envoyé : ${answer.text}`;
+    const parts = [];
+    if (answer.matchedArtist) parts.push(`artiste +${answer.pointsArtist || 0}`);
+    if (answer.matchedTitle) parts.push(`titre +${answer.pointsTitle || 0}`);
+    if (answer.pointsBonus) parts.push(`bonus +${answer.pointsBonus}`);
+    item.textContent = answer.accepted ? `✅ ${answer.text} (${parts.join(" · ") || `+${answer.pointsAwarded}`})` : answer.refused ? `❌ ${answer.text}` : `Envoyé : ${answer.text}`;
     box.appendChild(item);
   });
 }

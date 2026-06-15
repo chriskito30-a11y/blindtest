@@ -19,10 +19,14 @@ import {
   youtubeWatchUrl,
   answerModeLabel,
   expectedAnswerText,
-  nextPoints,
   normalizeAnswer,
   parseYouTubeTitleGuess,
-  answerMatchesExpected,
+  evaluateAnswerParts,
+  missingRequiredParts,
+  allRequiredPartsFound,
+  partLabel,
+  partPoints,
+  foundPartsSummary,
   defaultRound,
   clampDuration,
   setStatus
@@ -40,7 +44,7 @@ let ytPlayer = null;
 let playerReady = false;
 let autoPausedRoundId = "";
 let autoFinishRoundId = "";
-let autoCheckAnswerId = "";
+let autoProcessingAnswerId = "";
 
 const apiKeyStorageKey = "blindMasterYoutubeApiKey";
 
@@ -352,6 +356,9 @@ async function startRound() {
     winnerAnswerId: "",
     winnerPlayerId: "",
     winnerTeamId: "",
+    foundParts: {},
+    lastAwardAnswerId: "",
+    lastAwardAt: 0,
     reveal: false,
     endedAt: 0,
     endReason: "",
@@ -368,7 +375,7 @@ async function startRound() {
     }
     autoPausedRoundId = "";
     autoFinishRoundId = "";
-    autoCheckAnswerId = "";
+    autoProcessingAnswerId = "";
     await update(ref(db, roomPath(roomId)), {
       currentRound: payload,
       "private/currentRoundSecret": {
@@ -421,42 +428,109 @@ async function resetScores() {
   if (Object.keys(updates).length) await update(ref(db, roomPath(roomId)), updates);
 }
 
-async function acceptAnswer(answerId, options = {}) {
+async function awardAnswerParts(answerId, parts, options = {}) {
   const answer = safeAnswers(currentRound).find((item) => item.id === answerId);
-  if (!answer || answer.accepted || currentRound.winnerAnswerId) return;
+  if (!answer || currentRound.status !== "playing") return;
+  if (!secretRound?.roundId || secretRound.roundId !== currentRound.roundId) return;
+
+  const mode = currentRound.answerMode || config.answerMode;
+  const missing = missingRequiredParts(currentRound, mode);
+  const cleanParts = Array.from(new Set((parts || []).filter((part) => missing.includes(part))));
+  if (!cleanParts.length) return;
 
   const now = Date.now();
-  const points = nextPoints(config, currentRound);
   const artist = secretRound.artist || $("#artistInput").value.trim();
   const title = secretRound.title || $("#titleInput").value.trim();
   const updates = {};
+  let totalPoints = Number(answer.pointsAwarded || 0);
+  let newPoints = 0;
+  const previousParts = Array.isArray(answer.partsAwarded) ? answer.partsAwarded : [];
+  const nextParts = Array.from(new Set([...previousParts, ...cleanParts]));
+
+  cleanParts.forEach((part) => {
+    const points = partPoints(part, config, mode);
+    newPoints += points;
+    totalPoints += points;
+    updates[`currentRound/foundParts/${part}`] = {
+      answerId,
+      playerId: answer.playerId,
+      playerName: answer.playerName,
+      teamId: answer.teamId,
+      teamName: answer.teamName,
+      text: answer.text,
+      at: answer.at,
+      points,
+      auto: options.auto === true,
+      awardedAt: now
+    };
+    updates[`currentRound/answers/${answerId}/${part === "artist" ? "matchedArtist" : "matchedTitle"}`] = true;
+    updates[`currentRound/answers/${answerId}/${part === "artist" ? "pointsArtist" : "pointsTitle"}`] = points;
+  });
+
+  const bonus = cleanParts.includes("artist") && cleanParts.includes("title") ? Number(config.pointsThird || 0) : 0;
+  if (bonus > 0) {
+    newPoints += bonus;
+    totalPoints += bonus;
+    updates[`currentRound/answers/${answerId}/pointsBonus`] = bonus;
+  }
 
   updates[`currentRound/answers/${answerId}/accepted`] = true;
   updates[`currentRound/answers/${answerId}/refused`] = false;
-  updates[`currentRound/answers/${answerId}/pointsAwarded`] = points;
+  updates[`currentRound/answers/${answerId}/pointsAwarded`] = totalPoints;
+  updates[`currentRound/answers/${answerId}/partsAwarded`] = nextParts;
   updates[`currentRound/answers/${answerId}/validatedAt`] = now;
   updates[`currentRound/answers/${answerId}/autoAccepted`] = options.auto === true;
+  updates["currentRound/lastAwardAnswerId"] = answerId;
+  updates["currentRound/lastAwardAt"] = now;
 
-  updates["currentRound/winnerAnswerId"] = answerId;
-  updates["currentRound/winnerPlayerId"] = answer.playerId;
-  updates["currentRound/winnerTeamId"] = answer.teamId;
-  updates["currentRound/active"] = false;
-  updates["currentRound/status"] = "revealed";
-  updates["currentRound/reveal"] = true;
-  updates["currentRound/revealedArtist"] = artist;
-  updates["currentRound/revealedTitle"] = title;
-  updates["currentRound/endedAt"] = now;
-  updates["currentRound/endReason"] = options.auto ? "auto_correct" : "manual_correct";
+  const simulatedRound = {
+    ...currentRound,
+    foundParts: {
+      ...(currentRound.foundParts || {}),
+      ...Object.fromEntries(cleanParts.map((part) => [part, { answerId }]))
+    }
+  };
+  const complete = allRequiredPartsFound(simulatedRound, mode);
+
+  if (complete) {
+    updates["currentRound/winnerAnswerId"] = answerId;
+    updates["currentRound/winnerPlayerId"] = answer.playerId;
+    updates["currentRound/winnerTeamId"] = answer.teamId;
+    updates["currentRound/active"] = false;
+    updates["currentRound/status"] = "revealed";
+    updates["currentRound/reveal"] = true;
+    updates["currentRound/revealedArtist"] = artist;
+    updates["currentRound/revealedTitle"] = title;
+    updates["currentRound/endedAt"] = now;
+    updates["currentRound/endReason"] = options.auto ? "auto_all_found" : "manual_all_found";
+  }
 
   const team = teams.find((item) => item.id === answer.teamId);
   const player = players.find((item) => item.id === answer.playerId);
-  updates[`teams/${answer.teamId}/score`] = Number(team?.score || 0) + points;
-  if (player?.id) updates[`players/${player.id}/score`] = Number(player.score || 0) + points;
+  updates[`teams/${answer.teamId}/score`] = Number(team?.score || 0) + newPoints;
+  if (player?.id) updates[`players/${player.id}/score`] = Number(player.score || 0) + newPoints;
 
   await update(ref(db, roomPath(roomId)), updates);
-  ytPlayer?.pauseVideo?.();
-  setStatus($("#roundStatus"), options.auto ? "Bonne réponse détectée : manche arrêtée et réponse révélée." : "Réponse acceptée : manche arrêtée et réponse révélée.", "success");
+
+  const labels = cleanParts.map(partLabel).join(" + ");
+  if (complete) {
+    ytPlayer?.pauseVideo?.();
+    setStatus($("#roundStatus"), `${labels} trouvé${cleanParts.length > 1 ? "s" : ""} : manche terminée et réponse révélée.`, "success");
+  } else {
+    setStatus($("#roundStatus"), `${labels} trouvé${cleanParts.length > 1 ? "s" : ""} : +${newPoints} point${newPoints > 1 ? "s" : ""}. La manche continue.`, "success");
+  }
 }
+
+async function awardDetectedParts(answerId, options = {}) {
+  const answer = safeAnswers(currentRound).find((item) => item.id === answerId);
+  if (!answer) return;
+  const mode = currentRound.answerMode || config.answerMode;
+  const detected = evaluateAnswerParts(answer.normalized || answer.text, secretRound, mode).parts;
+  const missing = missingRequiredParts(currentRound, mode);
+  const parts = detected.filter((part) => missing.includes(part));
+  return awardAnswerParts(answerId, parts, options);
+}
+
 
 async function refuseAnswer(answerId) {
   const answer = safeAnswers(currentRound).find((item) => item.id === answerId);
@@ -483,7 +557,7 @@ function render() {
 
   if (open) {
     $("#roundState").textContent = `Manche ${currentRound.roundNumber || ""} en cours`;
-    $("#roundInfo").textContent = `Les joueurs peuvent répondre. Réponse attendue : ${answerModeLabel(currentRound.answerMode)}.`;
+    $("#roundInfo").textContent = `Les joueurs peuvent répondre. ${foundPartsSummary(currentRound, currentRound.answerMode)}`;
   } else if (expired) {
     $("#roundState").textContent = "Temps écoulé";
     $("#roundInfo").textContent = "Temps écoulé : la réponse va être révélée automatiquement.";
@@ -492,14 +566,14 @@ function render() {
       ytPlayer?.pauseVideo?.();
     }
   } else if (currentRound?.status === "revealed") {
-    $("#roundState").textContent = currentRound.endReason === "auto_correct" ? "Bonne réponse !" : "Réponse révélée";
+    $("#roundState").textContent = currentRound.endReason === "auto_all_found" ? "Toutes les infos trouvées !" : "Réponse révélée";
     $("#roundInfo").textContent = expectedAnswerText({ ...currentRound, ...secretRound });
   } else if (currentRound?.roundId) {
     $("#roundState").textContent = "Manche fermée";
     $("#roundInfo").textContent = "Tu peux révéler maintenant ou préparer une nouvelle manche.";
   } else {
     $("#roundState").textContent = "En attente";
-    $("#roundInfo").textContent = "Prépare une vidéo et une réponse. L’app révèle automatiquement au premier bon répondant ou à la fin du chrono.";
+    $("#roundInfo").textContent = "Prépare une vidéo et une réponse. En mode Artiste + titre, chaque info est attribuée au plus rapide et la manche continue jusqu’à tout trouver.";
   }
 
   renderScoreboard();
@@ -508,16 +582,27 @@ function render() {
 }
 
 function maybeAutoFinishRound(open, expired) {
-  if (!currentRound?.roundId || currentRound.status !== "playing" || currentRound.winnerAnswerId) return;
+  if (!currentRound?.roundId || currentRound.status !== "playing") return;
   if (!secretRound?.roundId || secretRound.roundId !== currentRound.roundId) return;
 
   if (open) {
-    const answer = safeAnswers(currentRound).find((item) => !item.accepted && !item.refused && answerMatchesExpected(item.normalized || item.text, secretRound, currentRound.answerMode));
-    if (!answer || autoCheckAnswerId === answer.id) return;
-    autoCheckAnswerId = answer.id;
-    acceptAnswer(answer.id, { auto: true }).catch((error) => {
-      autoCheckAnswerId = "";
+    if (autoProcessingAnswerId) return;
+    const mode = currentRound.answerMode || config.answerMode;
+    const missing = missingRequiredParts(currentRound, mode);
+    if (!missing.length) return;
+
+    const answer = safeAnswers(currentRound).find((item) => {
+      if (item.refused) return false;
+      const detected = evaluateAnswerParts(item.normalized || item.text, secretRound, mode).parts;
+      return detected.some((part) => missing.includes(part));
+    });
+
+    if (!answer) return;
+    autoProcessingAnswerId = answer.id;
+    awardDetectedParts(answer.id, { auto: true }).catch((error) => {
       setStatus($("#roundStatus"), error.message || "Auto-validation impossible.", "error");
+    }).finally(() => {
+      autoProcessingAnswerId = "";
     });
     return;
   }
@@ -530,6 +615,7 @@ function maybeAutoFinishRound(open, expired) {
     });
   }
 }
+
 
 function renderScoreboard() {
   const list = $("#scoreboardList");
@@ -552,7 +638,9 @@ function renderScoreboard() {
 function renderAnswers() {
   const answers = safeAnswers(currentRound);
   const accepted = acceptedAnswers(currentRound);
-  $("#answersSummary").textContent = `${answers.length} réponse${answers.length > 1 ? "s" : ""} · ${accepted.length} acceptée${accepted.length > 1 ? "s" : ""}`;
+  const mode = currentRound.answerMode || config.answerMode;
+  const missing = missingRequiredParts(currentRound, mode);
+  $("#answersSummary").textContent = `${answers.length} réponse${answers.length > 1 ? "s" : ""} · ${accepted.length} avec point${accepted.length > 1 ? "s" : ""} · ${foundPartsSummary(currentRound, mode)}`;
   const list = $("#answersList");
   list.innerHTML = "";
 
@@ -566,6 +654,11 @@ function renderAnswers() {
 
   answers.forEach((answer, index) => {
     const team = teams.find((item) => item.id === answer.teamId);
+    const detected = secretRound?.roundId === currentRound.roundId
+      ? evaluateAnswerParts(answer.normalized || answer.text, secretRound, mode).parts
+      : [];
+    const awardable = detected.filter((part) => missing.includes(part));
+
     const card = document.createElement("article");
     card.className = "answer-card";
     if (answer.accepted) card.classList.add("accepted");
@@ -587,25 +680,49 @@ function renderAnswers() {
     text.className = "answer-text";
     text.textContent = answer.text;
 
+    const parts = document.createElement("p");
+    parts.className = "muted small-note";
+    const won = [];
+    if (answer.matchedArtist) won.push(`✅ Artiste +${answer.pointsArtist || 0}`);
+    if (answer.matchedTitle) won.push(`✅ Titre +${answer.pointsTitle || 0}`);
+    if (answer.pointsBonus) won.push(`⭐ Bonus +${answer.pointsBonus}`);
+    const detectedLabels = detected.map((part) => `détecté : ${partLabel(part).toLowerCase()}`);
+    parts.textContent = won.length ? won.join(" · ") : detectedLabels.length ? detectedLabels.join(" · ") : "Aucun élément reconnu automatiquement.";
+
     const bottom = document.createElement("div");
     bottom.className = "tiny-actions";
-    const accept = document.createElement("button");
-    accept.type = "button";
-    accept.textContent = answer.accepted ? `Acceptée +${answer.pointsAwarded}` : `Accepter +${nextPoints(config, currentRound)} et révéler`;
-    accept.disabled = answer.accepted || answer.refused;
-    accept.addEventListener("click", () => acceptAnswer(answer.id));
+
+    ["artist", "title"].forEach((part) => {
+      if (!missing.includes(part)) return;
+      if (!mode.includes(part)) return;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      const pts = partPoints(part, config, mode);
+      btn.textContent = `Attribuer ${partLabel(part).toLowerCase()} +${pts}`;
+      btn.disabled = currentRound.status !== "playing" || answer.refused;
+      btn.addEventListener("click", () => awardAnswerParts(answer.id, [part], { auto: false }));
+      bottom.appendChild(btn);
+    });
+
+    const autoBtn = document.createElement("button");
+    autoBtn.type = "button";
+    autoBtn.textContent = awardable.length ? `Attribuer détecté : ${awardable.map(partLabel).join(" + ")}` : "Rien à attribuer";
+    autoBtn.disabled = !awardable.length || currentRound.status !== "playing" || answer.refused;
+    autoBtn.addEventListener("click", () => awardAnswerParts(answer.id, awardable, { auto: false }));
 
     const refuse = document.createElement("button");
     refuse.type = "button";
     refuse.textContent = answer.refused ? "Refusée" : "Refuser";
-    refuse.disabled = answer.accepted || answer.refused;
+    refuse.disabled = answer.accepted || answer.refused || currentRound.status !== "playing";
     refuse.addEventListener("click", () => refuseAnswer(answer.id));
 
-    bottom.append(accept, refuse);
-    card.append(top, text, bottom);
+    bottom.prepend(autoBtn);
+    bottom.append(refuse);
+    card.append(top, text, parts, bottom);
     list.appendChild(card);
   });
 }
+
 
 window.addEventListener("beforeunload", () => {
   if (timerId) clearInterval(timerId);

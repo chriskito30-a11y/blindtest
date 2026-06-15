@@ -9,14 +9,17 @@ import {
   remove
 } from "https://www.gstatic.com/firebasejs/10.12.5/firebase-database.js";
 
+// À compléter avec la configuration Web de TON projet Firebase.
+// Ne laisse pas une vraie clé API non restreinte dans un dépôt public.
+// Dans Google Cloud Console, restreins la clé au domaine GitHub Pages ou au domaine final.
 const firebaseConfig = {
-  apiKey: "AIzaSyBRXQ1tLE-zyYWgEwF_HM21EM-ToAIZ1QM",
-  authDomain: "impro-ead69.firebaseapp.com",
-  databaseURL: "https://impro-ead69-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "impro-ead69",
-  storageBucket: "impro-ead69.firebasestorage.app",
-  messagingSenderId: "574031727979",
-  appId: "1:574031727979:web:1bff48266668f3a930902e"
+  apiKey: "VOTRE_CLE_FIREBASE_WEB",
+  authDomain: "VOTRE_PROJET.firebaseapp.com",
+  databaseURL: "https://VOTRE_PROJET-default-rtdb.europe-west1.firebasedatabase.app",
+  projectId: "VOTRE_PROJET",
+  storageBucket: "VOTRE_PROJET.firebasestorage.app",
+  messagingSenderId: "VOTRE_MESSAGING_SENDER_ID",
+  appId: "VOTRE_APP_ID"
 };
 
 const app = initializeApp(firebaseConfig);

@@ -9,10 +9,10 @@ export const DEFAULT_CONFIG = {
   durationSec: 20,
   answerMode: "artist_title",
   allowTeamCreation: true,
-  maxAnswersPerPlayer: 1,
+  maxAnswersPerPlayer: 5,
   pointsFirst: 5,
-  pointsSecond: 3,
-  pointsThird: 1,
+  pointsSecond: 5,
+  pointsThird: 0,
   revealAnswerOnScreen: true,
   updatedAt: 0
 };
@@ -161,6 +161,78 @@ export function answerMatchesExpected(answerText, secret = {}, mode = "artist_ti
   return artistOk && titleOk;
 }
 
+export function requiredParts(mode = "artist_title") {
+  if (mode === "artist") return ["artist"];
+  if (mode === "title") return ["title"];
+  return ["artist", "title"];
+}
+
+export function partLabel(part = "") {
+  if (part === "artist") return "Artiste";
+  if (part === "title") return "Titre";
+  return "Info";
+}
+
+export function partPoints(part = "", config = {}, mode = "artist_title") {
+  const cfg = safeConfig(config);
+  if (mode === "artist") return cfg.pointsFirst;
+  if (mode === "title") return cfg.pointsSecond || cfg.pointsFirst;
+  if (part === "artist") return cfg.pointsFirst;
+  if (part === "title") return cfg.pointsSecond;
+  return cfg.pointsFirst;
+}
+
+export function evaluateAnswerParts(answerText, secret = {}, mode = "artist_title") {
+  const answer = normalizeAnswer(answerText);
+  const need = requiredParts(mode);
+  const artistAliases = buildAnswerAliases(secret.artist || "", "artist");
+  const titleAliases = buildAnswerAliases(secret.title || "", "title");
+  const artist = need.includes("artist") && normalizedContainsAlias(answer, artistAliases);
+  const title = need.includes("title") && normalizedContainsAlias(answer, titleAliases);
+  const parts = [];
+  if (artist) parts.push("artist");
+  if (title) parts.push("title");
+  return { artist, title, parts };
+}
+
+export function safeFoundParts(round = {}) {
+  const raw = round?.foundParts || {};
+  const out = {};
+  ["artist", "title"].forEach((part) => {
+    if (!raw?.[part]) return;
+    const item = raw[part] || {};
+    out[part] = {
+      part,
+      answerId: String(item.answerId || ""),
+      playerId: String(item.playerId || ""),
+      playerName: String(item.playerName || "Joueur"),
+      teamId: normalizeTeamId(item.teamId),
+      teamName: String(item.teamName || "Équipe"),
+      text: String(item.text || ""),
+      at: Number(item.at || 0),
+      points: Number(item.points || 0)
+    };
+  });
+  return out;
+}
+
+export function missingRequiredParts(round = {}, mode = "artist_title") {
+  const found = safeFoundParts(round);
+  return requiredParts(mode).filter((part) => !found[part]);
+}
+
+export function allRequiredPartsFound(round = {}, mode = "artist_title") {
+  return missingRequiredParts(round, mode).length === 0;
+}
+
+export function foundPartsSummary(round = {}, mode = "artist_title") {
+  const found = safeFoundParts(round);
+  return requiredParts(mode).map((part) => {
+    const item = found[part];
+    return item ? `${partLabel(part)} : ${item.playerName} (${item.teamName}, +${item.points})` : `${partLabel(part)} : à trouver`;
+  }).join(" · ");
+}
+
 export function getRoomIdFromUrl() {
   return normalizeRoomId(new URLSearchParams(window.location.search).get("room"));
 }
@@ -210,7 +282,7 @@ export function clampDuration(value) {
 export function clampAttempts(value) {
   const n = Number.parseInt(value, 10);
   if (!Number.isFinite(n)) return 1;
-  return Math.min(5, Math.max(1, n));
+  return Math.min(10, Math.max(2, n));
 }
 
 export function clampPoints(value, fallback = 0) {
@@ -316,6 +388,9 @@ export function defaultRound() {
     winnerAnswerId: "",
     winnerPlayerId: "",
     winnerTeamId: "",
+    foundParts: {},
+    lastAwardAnswerId: "",
+    lastAwardAt: 0,
     reveal: false,
     endedAt: 0,
     endReason: "",
@@ -362,6 +437,12 @@ export function safeAnswers(round = {}) {
       accepted: answer?.accepted === true,
       refused: answer?.refused === true,
       autoAccepted: answer?.autoAccepted === true,
+      matchedArtist: answer?.matchedArtist === true,
+      matchedTitle: answer?.matchedTitle === true,
+      pointsArtist: Number(answer?.pointsArtist || 0),
+      pointsTitle: Number(answer?.pointsTitle || 0),
+      pointsBonus: Number(answer?.pointsBonus || 0),
+      partsAwarded: Array.isArray(answer?.partsAwarded) ? answer.partsAwarded : [],
       pointsAwarded: Number(answer?.pointsAwarded || 0)
     }))
     .sort((a, b) => a.at - b.at);

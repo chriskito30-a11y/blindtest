@@ -14,7 +14,11 @@ import {
   publicUrl,
   qrCodeUrl,
   expectedAnswerText,
-  answerModeLabel
+  answerModeLabel,
+  safeFoundParts,
+  requiredParts,
+  partLabel,
+  foundPartsSummary
 } from "./core.js";
 
 const roomId = getRoomIdFromUrl();
@@ -22,7 +26,7 @@ let config = safeConfig();
 let teams = [];
 let players = [];
 let currentRound = {};
-let previousWinnerId = "";
+let previousAwardKey = "";
 let tick = null;
 
 if (!roomId) {
@@ -48,8 +52,9 @@ function boot() {
   });
   onValue(ref(db, roomPath(roomId, "currentRound")), (snap) => {
     currentRound = snap.val() || {};
-    if (currentRound.winnerAnswerId && currentRound.winnerAnswerId !== previousWinnerId) {
-      previousWinnerId = currentRound.winnerAnswerId;
+    const awardKey = `${currentRound.lastAwardAnswerId || currentRound.winnerAnswerId || ""}:${currentRound.lastAwardAt || ""}`;
+    if (awardKey && awardKey !== previousAwardKey) {
+      previousAwardKey = awardKey;
       document.body.classList.remove("winner-pop");
       void document.body.offsetWidth;
       document.body.classList.add("winner-pop");
@@ -67,7 +72,9 @@ function render() {
   const progress = open || expired ? Math.max(0, Math.min(100, (remaining / duration) * 100)) : 0;
   const answers = safeAnswers(currentRound);
   const accepted = acceptedAnswers(currentRound);
-  const winner = currentRound?.winnerAnswerId ? answers.find((answer) => answer.id === currentRound.winnerAnswerId) : accepted[0];
+  const found = safeFoundParts(currentRound);
+  const foundCount = Object.keys(found).length;
+  const neededCount = requiredParts(currentRound.answerMode || config.answerMode).length;
 
   $("#screenTitle").textContent = config.title;
   $("#screenSubtitle").textContent = config.subtitle;
@@ -76,7 +83,7 @@ function render() {
 
   if (open) {
     $("#screenStatus").textContent = `Manche ${currentRound.roundNumber || ""} en cours`;
-    $("#screenRoundInfo").textContent = `${answerModeLabel(currentRound.answerMode || config.answerMode)} · ${answers.length} réponse${answers.length > 1 ? "s" : ""} reçue${answers.length > 1 ? "s" : ""}`;
+    $("#screenRoundInfo").textContent = `${answerModeLabel(currentRound.answerMode || config.answerMode)} · ${foundCount}/${neededCount} info${neededCount > 1 ? "s" : ""} trouvée${foundCount > 1 ? "s" : ""} · ${answers.length} réponse${answers.length > 1 ? "s" : ""}`;
     $("#screenTimer").textContent = formatTimer(remaining);
     document.body.classList.add("round-live");
     document.body.classList.remove("round-ended");
@@ -87,8 +94,8 @@ function render() {
     document.body.classList.remove("round-live");
     document.body.classList.add("round-ended");
   } else if (currentRound?.status === "revealed") {
-    $("#screenStatus").textContent = currentRound?.winnerAnswerId ? "Bonne réponse !" : "Réponse révélée";
-    $("#screenRoundInfo").textContent = currentRound?.winnerAnswerId ? "La manche est arrêtée." : "Préparez-vous pour la manche suivante.";
+    $("#screenStatus").textContent = currentRound?.winnerAnswerId ? "Toutes les infos trouvées !" : "Réponse révélée";
+    $("#screenRoundInfo").textContent = currentRound?.winnerAnswerId ? foundPartsSummary(currentRound, currentRound.answerMode || config.answerMode) : "Préparez-vous pour la manche suivante.";
     $("#screenTimer").textContent = "♪";
     document.body.classList.remove("round-live");
     document.body.classList.add("round-ended");
@@ -102,21 +109,29 @@ function render() {
     $("#screenTimer").textContent = "--";
   }
 
-  renderWinner(winner);
+  renderFoundParts(found);
   renderReveal();
   renderScoreboard();
 }
 
-function renderWinner(winner) {
+function renderFoundParts(found) {
   const panel = $("#winnerPanel");
-  if (!winner) {
+  const parts = requiredParts(currentRound.answerMode || config.answerMode)
+    .map((part) => ({ part, item: found[part] }))
+    .filter((entry) => entry.item);
+
+  if (!parts.length) {
     panel.hidden = true;
     return;
   }
+
   panel.hidden = false;
-  $("#winnerName").textContent = winner.playerName;
-  $("#winnerTeam").textContent = `${winner.teamName} · +${winner.pointsAwarded || 0} point${Number(winner.pointsAwarded || 0) > 1 ? "s" : ""}`;
+  const eyebrow = panel.querySelector(".eyebrow");
+  if (eyebrow) eyebrow.textContent = "Infos trouvées";
+  $("#winnerName").textContent = parts.map(({ part, item }) => `${partLabel(part)} : ${item.playerName}`).join(" · ");
+  $("#winnerTeam").textContent = parts.map(({ part, item }) => `${item.teamName} · +${item.points} ${partLabel(part).toLowerCase()}`).join(" | ");
 }
+
 
 function renderReveal() {
   const panel = $("#answerRevealPanel");

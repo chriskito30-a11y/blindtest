@@ -159,8 +159,8 @@ $("#settingsForm")?.addEventListener("submit", async (event) => {
     answerMode: fields.answerMode.value,
     maxAnswersPerPlayer: clampAttempts(fields.maxAnswersPerPlayer.value),
     pointsFirst: clampPoints(fields.pointsFirst.value, 5),
-    pointsSecond: clampPoints(fields.pointsSecond.value, 3),
-    pointsThird: clampPoints(fields.pointsThird.value, 1),
+    pointsSecond: clampPoints(fields.pointsSecond.value, 5),
+    pointsThird: clampPoints(fields.pointsThird.value, 0),
     allowTeamCreation: fields.allowTeamCreation.checked,
     revealAnswerOnScreen: fields.revealAnswerOnScreen.checked,
     updatedAt: Date.now()

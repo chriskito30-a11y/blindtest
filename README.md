@@ -18,9 +18,12 @@ Prototype autonome de blind test live pour Fais Ton Show.
 - Possibilité pour les joueurs de créer leur équipe depuis le lien général si l’option est activée, sans limite fixe à 2 équipes.
 - Réponse depuis téléphone avec limite de tentatives par manche.
 - Classement par équipe et scores par joueur.
-- Validation manuelle par l’arbitre : accepter/refuser une réponse.
-- Points configurables : 1er, 2e et 3e bon répondant.
-- Écran public : chrono, QR code, nombre de joueurs, premier bon répondant, révélation de la réponse.
+- Attribution automatique des points : l’app détecte artiste et/ou titre dans chaque réponse.
+- En mode Artiste + titre, les deux informations sont indépendantes : le premier qui trouve l’artiste gagne les points artiste, le premier qui trouve le titre gagne les points titre.
+- La manche continue tant que toutes les informations demandées ne sont pas trouvées, puis se révèle automatiquement.
+- Bonus optionnel si un joueur trouve artiste + titre dans la même réponse.
+- Boutons arbitre conservés en secours pour attribuer manuellement artiste/titre ou refuser une réponse.
+- Écran public : chrono, QR code, nombre de joueurs, infos trouvées, révélation de la réponse.
 - YouTube côté arbitre : lecteur iframe officiel, timecode de départ, lecture/pause/stop.
 - Recherche YouTube intégrée si une clé YouTube Data API est saisie côté arbitre.
 - Fallback sans clé API : bouton “Ouvrir YouTube” + collage d’un lien YouTube ou d’un ID vidéo.
@@ -34,7 +37,7 @@ La recherche intégrée nécessite une clé YouTube Data API. La clé est mémor
 
 ## Firebase
 
-La configuration Firebase est dans `firebase-config.js`.
+La configuration Firebase est dans `firebase-config.js`. Dans ce pack, elle est volontairement fournie avec des valeurs à compléter pour éviter une nouvelle alerte GitHub “secret detected”. Colle ta configuration Web Firebase restreinte au domaine de déploiement.
 
 Le prototype utilise le chemin Realtime Database :
 
@@ -81,30 +84,28 @@ Le titre et l’artiste attendus ne sont pas envoyés dans le nœud public `curr
 4. Ouvrir `vote.html` sur plusieurs téléphones ou navigateurs différents, puis créer plusieurs équipes depuis la page joueur.
 5. Dans `admin.html`, coller un lien YouTube, définir un timecode, saisir artiste/titre et lancer la manche.
 6. Envoyer des réponses depuis les téléphones.
-7. Accepter une réponse côté arbitre, vérifier l’affichage du gagnant et le score écran.
-8. Cliquer sur “Révéler” pour afficher la bonne réponse.
+7. Envoyer une réponse contenant seulement l’artiste : vérifier que les points artiste sont attribués et que la manche continue.
+8. Envoyer une réponse contenant le titre : vérifier que les points titre sont attribués, que YouTube se met en pause et que la réponse se révèle automatiquement.
 
 ## Limites actuelles du prototype
 
 - Pas d’authentification Firebase réelle.
 - Pas de playlist de manches sauvegardée.
-- Pas d’auto-correction intelligente des réponses.
+- Auto-correction simple par comparaison tolérante : à vérifier pour les cas complexes, reprises, featuring, titres très courts, fautes importantes.
 - Pas de retrait automatique des points si une réponse acceptée est finalement annulée.
 - La recherche YouTube intégrée dépend du quota et de la configuration de la clé API.
 
 
-## Nouveautés v3 — Auto-réponse et manche express
+## Nouveautés v4 — Artiste et titre séparés
 
-Cette version ajoute un comportement plus proche d'un vrai blind test rapide :
+Cette version ajoute une règle de jeu plus juste :
 
-- Quand l'arbitre sélectionne une vidéo YouTube depuis les résultats, l'application essaie de préremplir automatiquement **Artiste attendu** et **Titre attendu** à partir du titre YouTube.
-- Si l'arbitre colle un lien/ID YouTube et qu'une clé YouTube Data API est renseignée, l'application récupère aussi le titre de la vidéo via l'API `videos.list`, puis tente le préremplissage.
-- Les champs restent modifiables : les titres YouTube ne sont pas toujours propres, donc il faut vérifier avant de lancer.
-- Pendant la manche, la console arbitre compare automatiquement les réponses reçues avec le mode choisi :
-  - `Titre uniquement`
-  - `Artiste uniquement`
-  - `Artiste + titre`
-- Dès que la première réponse correcte arrive, la manche s'arrête automatiquement, YouTube est mis en pause, les points sont attribués et la bonne réponse s'affiche sur l'écran.
-- Si personne ne trouve avant la fin du chrono, la réponse est révélée automatiquement.
+- En mode `Artiste + titre`, l’artiste et le titre sont deux objectifs séparés.
+- Le premier joueur qui donne l’artiste gagne automatiquement les points artiste.
+- Le premier joueur qui donne le titre gagne automatiquement les points titre.
+- Une seule réponse peut contenir les deux informations et gagner les deux lots, avec un bonus optionnel.
+- La manche ne s’arrête plus au premier élément trouvé : elle continue tant que toutes les informations demandées ne sont pas trouvées.
+- À la fin du chrono, la réponse est révélée automatiquement même si tout n’a pas été trouvé.
+- L’arbitre garde des boutons de secours pour attribuer manuellement artiste ou titre si l’auto-détection rate une réponse.
 
-Important : l'auto-validation se fait dans la page arbitre, car c'est elle qui lit la réponse secrète. La page arbitre doit donc rester ouverte pendant la partie.
+Important : l’auto-attribution se fait dans la page arbitre, car c’est elle qui lit la réponse secrète. La page arbitre doit donc rester ouverte pendant la partie.
