@@ -21,6 +21,8 @@ import {
   expectedAnswerText,
   nextPoints,
   normalizeAnswer,
+  parseYouTubeTitleGuess,
+  answerMatchesExpected,
   defaultRound,
   clampDuration,
   setStatus
@@ -37,6 +39,8 @@ let timerId = null;
 let ytPlayer = null;
 let playerReady = false;
 let autoPausedRoundId = "";
+let autoFinishRoundId = "";
+let autoCheckAnswerId = "";
 
 const apiKeyStorageKey = "blindMasterYoutubeApiKey";
 
@@ -121,13 +125,19 @@ function bindControls() {
     window.open(`https://www.youtube.com/results?search_query=${encodeURIComponent(q)}`, "_blank", "noopener");
   });
 
-  $("#useYoutubeUrlBtn").addEventListener("click", () => {
+  $("#useYoutubeUrlBtn").addEventListener("click", async () => {
     const videoId = extractYouTubeId($("#youtubeUrlInput").value);
     if (!videoId) {
       setStatus($("#youtubeStatus"), "Lien YouTube ou ID vidéo invalide.", "error");
       return;
     }
-    setSelectedVideo({ videoId, title: "Vidéo YouTube sélectionnée", url: youtubeWatchUrl(videoId, $("#youtubeStartInput").value) });
+    const details = await getYoutubeVideoDetails(videoId);
+    setSelectedVideo({
+      videoId,
+      title: details?.title || "Vidéo YouTube sélectionnée",
+      channel: details?.channel || "",
+      url: youtubeWatchUrl(videoId, $("#youtubeStartInput").value)
+    });
   });
 
   $("#cueBtn").addEventListener("click", () => cueSelectedVideo());
@@ -137,7 +147,7 @@ function bindControls() {
 
   $("#startRoundBtn").addEventListener("click", startRound);
   $("#closeRoundBtn").addEventListener("click", closeRound);
-  $("#revealRoundBtn").addEventListener("click", revealRound);
+  $("#revealRoundBtn").addEventListener("click", () => revealRound("manual"));
   $("#resetRoundBtn").addEventListener("click", resetRound);
   $("#resetScoresBtn").addEventListener("click", resetScores);
 }
@@ -202,7 +212,7 @@ function renderYoutubeResults(items) {
     small.textContent = channel;
     body.append(strong, small);
     card.append(img, body);
-    card.addEventListener("click", () => setSelectedVideo({ videoId, title, url: youtubeWatchUrl(videoId, $("#youtubeStartInput").value) }));
+    card.addEventListener("click", () => setSelectedVideo({ videoId, title, channel, url: youtubeWatchUrl(videoId, $("#youtubeStartInput").value) }));
     resultsEl.appendChild(card);
   });
 }
@@ -211,6 +221,28 @@ function decodeEntities(text) {
   const el = document.createElement("textarea");
   el.innerHTML = text;
   return el.value;
+}
+
+async function getYoutubeVideoDetails(videoId) {
+  const apiKey = $("#youtubeApiKeyInput").value.trim() || localStorage.getItem(apiKeyStorageKey) || "";
+  if (!apiKey) return null;
+  try {
+    const url = new URL("https://www.googleapis.com/youtube/v3/videos");
+    url.searchParams.set("part", "snippet");
+    url.searchParams.set("id", videoId);
+    url.searchParams.set("key", apiKey);
+    const response = await fetch(url.href);
+    if (!response.ok) return null;
+    const data = await response.json();
+    const item = data.items?.[0];
+    if (!item?.snippet) return null;
+    return {
+      title: decodeEntities(item.snippet.title || ""),
+      channel: decodeEntities(item.snippet.channelTitle || "")
+    };
+  } catch {
+    return null;
+  }
 }
 
 function loadYoutubeApi() {
@@ -257,12 +289,26 @@ async function setSelectedVideo(video) {
   selectedVideo = {
     videoId: video.videoId,
     title: video.title || "Vidéo YouTube sélectionnée",
+    channel: video.channel || "",
     url: video.url || youtubeWatchUrl(video.videoId, $("#youtubeStartInput").value)
   };
   $("#youtubeUrlInput").value = selectedVideo.url;
   $("#selectedVideoLabel").textContent = `Vidéo : ${selectedVideo.title}`;
+  autoFillExpectedFromVideo(selectedVideo.title, selectedVideo.channel);
   await ensurePlayer(selectedVideo.videoId);
   cueSelectedVideo();
+}
+
+function autoFillExpectedFromVideo(title, channel = "") {
+  const guess = parseYouTubeTitleGuess(title, channel);
+  if (!guess.artist && !guess.title) {
+    setStatus($("#youtubeStatus"), "Vidéo sélectionnée. Impossible de deviner artiste/titre : renseigne-les manuellement.", "error");
+    return;
+  }
+  if (guess.artist) $("#artistInput").value = guess.artist;
+  if (guess.title) $("#titleInput").value = guess.title;
+  const bits = [guess.artist, guess.title].filter(Boolean).join(" — ");
+  setStatus($("#youtubeStatus"), `Vidéo sélectionnée. Réponse préremplie : ${bits}. Vérifie avant de lancer.`, "success");
 }
 
 function cueSelectedVideo() {
@@ -307,6 +353,8 @@ async function startRound() {
     winnerPlayerId: "",
     winnerTeamId: "",
     reveal: false,
+    endedAt: 0,
+    endReason: "",
     answers: {}
   };
 
@@ -319,6 +367,8 @@ async function startRound() {
       }
     }
     autoPausedRoundId = "";
+    autoFinishRoundId = "";
+    autoCheckAnswerId = "";
     await update(ref(db, roomPath(roomId)), {
       currentRound: payload,
       "private/currentRoundSecret": {
@@ -343,7 +393,7 @@ async function closeRound() {
   ytPlayer?.pauseVideo?.();
 }
 
-async function revealRound() {
+async function revealRound(reason = "manual") {
   const artist = secretRound.artist || $("#artistInput").value.trim();
   const title = secretRound.title || $("#titleInput").value.trim();
   await update(ref(db, roomPath(roomId, "currentRound")), {
@@ -351,7 +401,9 @@ async function revealRound() {
     status: "revealed",
     reveal: true,
     revealedArtist: artist,
-    revealedTitle: title
+    revealedTitle: title,
+    endedAt: Date.now(),
+    endReason: reason
   });
   ytPlayer?.pauseVideo?.();
 }
@@ -369,21 +421,32 @@ async function resetScores() {
   if (Object.keys(updates).length) await update(ref(db, roomPath(roomId)), updates);
 }
 
-async function acceptAnswer(answerId) {
+async function acceptAnswer(answerId, options = {}) {
   const answer = safeAnswers(currentRound).find((item) => item.id === answerId);
-  if (!answer || answer.accepted) return;
+  if (!answer || answer.accepted || currentRound.winnerAnswerId) return;
+
+  const now = Date.now();
   const points = nextPoints(config, currentRound);
+  const artist = secretRound.artist || $("#artistInput").value.trim();
+  const title = secretRound.title || $("#titleInput").value.trim();
   const updates = {};
+
   updates[`currentRound/answers/${answerId}/accepted`] = true;
   updates[`currentRound/answers/${answerId}/refused`] = false;
   updates[`currentRound/answers/${answerId}/pointsAwarded`] = points;
-  updates[`currentRound/answers/${answerId}/validatedAt`] = Date.now();
+  updates[`currentRound/answers/${answerId}/validatedAt`] = now;
+  updates[`currentRound/answers/${answerId}/autoAccepted`] = options.auto === true;
 
-  if (!currentRound.winnerAnswerId) {
-    updates["currentRound/winnerAnswerId"] = answerId;
-    updates["currentRound/winnerPlayerId"] = answer.playerId;
-    updates["currentRound/winnerTeamId"] = answer.teamId;
-  }
+  updates["currentRound/winnerAnswerId"] = answerId;
+  updates["currentRound/winnerPlayerId"] = answer.playerId;
+  updates["currentRound/winnerTeamId"] = answer.teamId;
+  updates["currentRound/active"] = false;
+  updates["currentRound/status"] = "revealed";
+  updates["currentRound/reveal"] = true;
+  updates["currentRound/revealedArtist"] = artist;
+  updates["currentRound/revealedTitle"] = title;
+  updates["currentRound/endedAt"] = now;
+  updates["currentRound/endReason"] = options.auto ? "auto_correct" : "manual_correct";
 
   const team = teams.find((item) => item.id === answer.teamId);
   const player = players.find((item) => item.id === answer.playerId);
@@ -391,6 +454,8 @@ async function acceptAnswer(answerId) {
   if (player?.id) updates[`players/${player.id}/score`] = Number(player.score || 0) + points;
 
   await update(ref(db, roomPath(roomId)), updates);
+  ytPlayer?.pauseVideo?.();
+  setStatus($("#roundStatus"), options.auto ? "Bonne réponse détectée : manche arrêtée et réponse révélée." : "Réponse acceptée : manche arrêtée et réponse révélée.", "success");
 }
 
 async function refuseAnswer(answerId) {
@@ -421,24 +486,49 @@ function render() {
     $("#roundInfo").textContent = `Les joueurs peuvent répondre. Réponse attendue : ${answerModeLabel(currentRound.answerMode)}.`;
   } else if (expired) {
     $("#roundState").textContent = "Temps écoulé";
-    $("#roundInfo").textContent = "Les réponses sont bloquées. Valide le premier bon répondant puis révèle.";
+    $("#roundInfo").textContent = "Temps écoulé : la réponse va être révélée automatiquement.";
     if (autoPausedRoundId !== currentRound.roundId) {
       autoPausedRoundId = currentRound.roundId;
       ytPlayer?.pauseVideo?.();
     }
   } else if (currentRound?.status === "revealed") {
-    $("#roundState").textContent = "Réponse révélée";
+    $("#roundState").textContent = currentRound.endReason === "auto_correct" ? "Bonne réponse !" : "Réponse révélée";
     $("#roundInfo").textContent = expectedAnswerText({ ...currentRound, ...secretRound });
   } else if (currentRound?.roundId) {
     $("#roundState").textContent = "Manche fermée";
-    $("#roundInfo").textContent = "Tu peux valider, révéler ou préparer une nouvelle manche.";
+    $("#roundInfo").textContent = "Tu peux révéler maintenant ou préparer une nouvelle manche.";
   } else {
     $("#roundState").textContent = "En attente";
-    $("#roundInfo").textContent = "Prépare une vidéo et une réponse, puis lance la manche.";
+    $("#roundInfo").textContent = "Prépare une vidéo et une réponse. L’app révèle automatiquement au premier bon répondant ou à la fin du chrono.";
   }
 
   renderScoreboard();
   renderAnswers();
+  maybeAutoFinishRound(open, expired);
+}
+
+function maybeAutoFinishRound(open, expired) {
+  if (!currentRound?.roundId || currentRound.status !== "playing" || currentRound.winnerAnswerId) return;
+  if (!secretRound?.roundId || secretRound.roundId !== currentRound.roundId) return;
+
+  if (open) {
+    const answer = safeAnswers(currentRound).find((item) => !item.accepted && !item.refused && answerMatchesExpected(item.normalized || item.text, secretRound, currentRound.answerMode));
+    if (!answer || autoCheckAnswerId === answer.id) return;
+    autoCheckAnswerId = answer.id;
+    acceptAnswer(answer.id, { auto: true }).catch((error) => {
+      autoCheckAnswerId = "";
+      setStatus($("#roundStatus"), error.message || "Auto-validation impossible.", "error");
+    });
+    return;
+  }
+
+  if (expired && autoFinishRoundId !== currentRound.roundId) {
+    autoFinishRoundId = currentRound.roundId;
+    revealRound("timeout").catch((error) => {
+      autoFinishRoundId = "";
+      setStatus($("#roundStatus"), error.message || "Révélation automatique impossible.", "error");
+    });
+  }
 }
 
 function renderScoreboard() {
@@ -501,7 +591,7 @@ function renderAnswers() {
     bottom.className = "tiny-actions";
     const accept = document.createElement("button");
     accept.type = "button";
-    accept.textContent = answer.accepted ? `Acceptée +${answer.pointsAwarded}` : `Accepter +${nextPoints(config, currentRound)}`;
+    accept.textContent = answer.accepted ? `Acceptée +${answer.pointsAwarded}` : `Accepter +${nextPoints(config, currentRound)} et révéler`;
     accept.disabled = answer.accepted || answer.refused;
     accept.addEventListener("click", () => acceptAnswer(answer.id));
 

@@ -82,13 +82,13 @@ function render() {
     document.body.classList.remove("round-ended");
   } else if (expired) {
     $("#screenStatus").textContent = "Temps écoulé";
-    $("#screenRoundInfo").textContent = "L’arbitre valide la première bonne réponse.";
+    $("#screenRoundInfo").textContent = "Révélation automatique en cours.";
     $("#screenTimer").textContent = "FIN";
     document.body.classList.remove("round-live");
     document.body.classList.add("round-ended");
   } else if (currentRound?.status === "revealed") {
-    $("#screenStatus").textContent = "Réponse révélée";
-    $("#screenRoundInfo").textContent = "Préparez-vous pour la manche suivante.";
+    $("#screenStatus").textContent = currentRound?.winnerAnswerId ? "Bonne réponse !" : "Réponse révélée";
+    $("#screenRoundInfo").textContent = currentRound?.winnerAnswerId ? "La manche est arrêtée." : "Préparez-vous pour la manche suivante.";
     $("#screenTimer").textContent = "♪";
     document.body.classList.remove("round-live");
     document.body.classList.add("round-ended");

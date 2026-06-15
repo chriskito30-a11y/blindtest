@@ -15,7 +15,7 @@ Prototype autonome de blind test live pour Fais Ton Show.
 
 - Création d’une partie protégée par mot de passe arbitre.
 - Équipes configurables avec couleur, score, lien d’invitation et QR code.
-- Possibilité pour les joueurs de créer leur équipe si l’option est activée.
+- Possibilité pour les joueurs de créer leur équipe depuis le lien général si l’option est activée, sans limite fixe à 2 équipes.
 - Réponse depuis téléphone avec limite de tentatives par manche.
 - Classement par équipe et scores par joueur.
 - Validation manuelle par l’arbitre : accepter/refuser une réponse.
@@ -76,9 +76,9 @@ Le titre et l’artiste attendus ne sont pas envoyés dans le nœud public `curr
 ## Tests recommandés
 
 1. Créer une partie depuis `index.html`.
-2. Dans `settings.html`, créer 2 ou 3 équipes et copier les liens d’équipe.
+2. Dans `settings.html`, vérifier que l’option “Autoriser les joueurs à créer leur équipe” est cochée, puis copier le lien général joueur.
 3. Ouvrir `screen.html` sur un ordinateur ou vidéoprojecteur.
-4. Ouvrir `vote.html` sur deux téléphones ou deux navigateurs différents.
+4. Ouvrir `vote.html` sur plusieurs téléphones ou navigateurs différents, puis créer plusieurs équipes depuis la page joueur.
 5. Dans `admin.html`, coller un lien YouTube, définir un timecode, saisir artiste/titre et lancer la manche.
 6. Envoyer des réponses depuis les téléphones.
 7. Accepter une réponse côté arbitre, vérifier l’affichage du gagnant et le score écran.
@@ -92,3 +92,19 @@ Le titre et l’artiste attendus ne sont pas envoyés dans le nœud public `curr
 - Pas de retrait automatique des points si une réponse acceptée est finalement annulée.
 - La recherche YouTube intégrée dépend du quota et de la configuration de la clé API.
 
+
+## Nouveautés v3 — Auto-réponse et manche express
+
+Cette version ajoute un comportement plus proche d'un vrai blind test rapide :
+
+- Quand l'arbitre sélectionne une vidéo YouTube depuis les résultats, l'application essaie de préremplir automatiquement **Artiste attendu** et **Titre attendu** à partir du titre YouTube.
+- Si l'arbitre colle un lien/ID YouTube et qu'une clé YouTube Data API est renseignée, l'application récupère aussi le titre de la vidéo via l'API `videos.list`, puis tente le préremplissage.
+- Les champs restent modifiables : les titres YouTube ne sont pas toujours propres, donc il faut vérifier avant de lancer.
+- Pendant la manche, la console arbitre compare automatiquement les réponses reçues avec le mode choisi :
+  - `Titre uniquement`
+  - `Artiste uniquement`
+  - `Artiste + titre`
+- Dès que la première réponse correcte arrive, la manche s'arrête automatiquement, YouTube est mis en pause, les points sont attribués et la bonne réponse s'affiche sur l'écran.
+- Si personne ne trouve avant la fin du chrono, la réponse est révélée automatiquement.
+
+Important : l'auto-validation se fait dans la page arbitre, car c'est elle qui lit la réponse secrète. La page arbitre doit donc rester ouverte pendant la partie.

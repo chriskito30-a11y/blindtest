@@ -39,7 +39,7 @@
         <div>
           <p class="eyebrow">Console arbitre</p>
           <h1 id="adminTitle">BlindTest Master</h1>
-          <p id="adminSubtitle" class="muted">Prépare la manche, lance YouTube, valide les réponses.</p>
+          <p id="adminSubtitle" class="muted">Prépare la manche, lance YouTube, l’app arrête au premier bon répondant.</p>
         </div>
         <div class="topbar-actions">
           <a class="ghost-link" id="settingsLink" href="#">Réglages</a>
@@ -51,7 +51,7 @@
       <div class="admin-layout">
         <section class="panel-card youtube-card">
           <div class="section-head">
-            <div><h2>Recherche & lecteur YouTube</h2><p class="muted">Optionnel : cherche une vidéo via API ou colle simplement un lien YouTube.</p></div>
+            <div><h2>Recherche & lecteur YouTube</h2><p class="muted">Optionnel : cherche une vidéo via API ou colle un lien. Quand c’est possible, l’app préremplit artiste et titre.</p></div>
           </div>
 
           <div class="api-key-row">
@@ -100,14 +100,14 @@
 
           <div class="round-state-box">
             <div id="timerOrb" class="timer-orb">--</div>
-            <div><h3 id="roundState">En attente</h3><p id="roundInfo" class="muted">Prépare une vidéo et une réponse, puis lance la manche.</p></div>
+            <div><h3 id="roundState">En attente</h3><p id="roundInfo" class="muted">Prépare une vidéo et une réponse. La manche se révèle automatiquement au premier bon répondant ou à la fin du chrono.</p></div>
           </div>
 
           <div class="actions-column">
             <button id="startRoundBtn" class="primary-btn big-btn">Lancer la manche + YouTube</button>
             <div class="actions-row">
               <button id="closeRoundBtn" class="secondary-btn" type="button">Fermer les réponses</button>
-              <button id="revealRoundBtn" class="ghost-btn" type="button">Révéler</button>
+              <button id="revealRoundBtn" class="ghost-btn" type="button">Révéler maintenant</button>
               <button id="resetRoundBtn" class="danger-btn" type="button">Réinitialiser manche</button>
             </div>
           </div>

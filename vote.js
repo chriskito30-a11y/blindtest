@@ -291,7 +291,7 @@ function render() {
     $("#voteTimer").textContent = formatTimer(remaining);
     $("#voteMessage").textContent = attemptsLeft > 0 ? `Réponds vite ! Tentative restante : ${attemptsLeft}` : "Réponse envoyée. Attends la validation de l’arbitre.";
   } else if (currentRound?.status === "revealed" && currentRound?.reveal) {
-    $("#voteTimer").textContent = "Révélé";
+    $("#voteTimer").textContent = currentRound?.winnerAnswerId ? "Gagné !" : "Révélé";
     const expected = [currentRound.revealedArtist, currentRound.revealedTitle].filter(Boolean).join(" — ");
     $("#voteMessage").textContent = expected ? `Réponse : ${expected}` : "La réponse a été révélée.";
   } else if (currentRound?.active && remaining <= 0) {

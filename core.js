@@ -62,6 +62,105 @@ export function normalizeAnswer(value) {
     .trim();
 }
 
+export function cleanYouTubeMusicTitle(value) {
+  return String(value || "")
+    .replace(/&amp;/gi, "&")
+    .replace(/&#39;/g, "'")
+    .replace(/&quot;/gi, '"')
+    .replace(/\s*[|•].*$/g, "")
+    .replace(/\s*\[(?:official|clip|video|lyrics?|paroles|audio|live|hd|4k|karaok[eé]|remaster(?:ed)?|version|visualizer|music video|officiel)[^\]]*\]/gi, "")
+    .replace(/\s*\((?:official|clip|video|lyrics?|paroles|audio|live|hd|4k|karaok[eé]|remaster(?:ed)?|version|visualizer|music video|officiel)[^)]*\)/gi, "")
+    .replace(/\b(?:official music video|official video|clip officiel|video officielle|audio officiel|official audio|lyrics video|paroles|lyrics|remastered|remasterisé|visualizer)\b/gi, "")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/^["'`]+|["'`]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export function parseYouTubeTitleGuess(videoTitle = "", channelTitle = "") {
+  const cleaned = cleanYouTubeMusicTitle(videoTitle);
+  const channel = cleanYouTubeMusicTitle(channelTitle).replace(/\s*-\s*topic$/i, "").trim();
+
+  const separators = [" - ", " – ", " — ", " : "];
+  for (const sep of separators) {
+    if (cleaned.includes(sep)) {
+      const [left, ...rightParts] = cleaned.split(sep);
+      const artist = cleanYouTubeMusicTitle(left);
+      const title = cleanYouTubeMusicTitle(rightParts.join(sep));
+      if (artist && title) return { artist, title, confidence: "medium" };
+    }
+  }
+
+  const byMatch = cleaned.match(/^(.+?)\s+by\s+(.+)$/i);
+  if (byMatch) {
+    return { artist: cleanYouTubeMusicTitle(byMatch[2]), title: cleanYouTubeMusicTitle(byMatch[1]), confidence: "low" };
+  }
+
+  if (channel && channel.length <= 60 && cleaned && normalizeAnswer(channel) !== normalizeAnswer(cleaned)) {
+    return { artist: channel, title: cleaned, confidence: "low" };
+  }
+
+  return { artist: "", title: cleaned || "", confidence: "low" };
+}
+
+function uniqueValues(values) {
+  return Array.from(new Set(values.filter(Boolean)));
+}
+
+export function buildAnswerAliases(rawValue = "", type = "title") {
+  const normalized = normalizeAnswer(rawValue);
+  if (!normalized) return [];
+
+  const aliases = [normalized];
+
+  if (type === "artist") {
+    const withoutFeat = normalized.split(/\b(?:feat|featuring|ft|avec|and|et|x)\b/)[0].trim();
+    if (withoutFeat) aliases.push(withoutFeat);
+
+    normalized.split(/\b(?:feat|featuring|ft|avec|and|et|x)\b|&|,/).forEach((part) => {
+      const clean = part.trim();
+      if (clean.length >= 4) aliases.push(clean);
+      const words = clean.split(" ").filter((word) => word.length >= 4);
+      const last = words[words.length - 1];
+      if (last && last.length >= 4) aliases.push(last);
+    });
+  }
+
+  if (type === "title") {
+    aliases.push(normalized.replace(/^the /, "").replace(/^le /, "").replace(/^la /, "").replace(/^les /, "").trim());
+  }
+
+  return uniqueValues(aliases).filter((alias) => alias.length >= 3);
+}
+
+export function normalizedContainsAlias(answerNormalized, aliases = []) {
+  const answer = ` ${normalizeAnswer(answerNormalized)} `;
+  return aliases.some((alias) => {
+    const clean = normalizeAnswer(alias);
+    if (!clean || clean.length < 3) return false;
+    return answer.includes(` ${clean} `);
+  });
+}
+
+export function answerMatchesExpected(answerText, secret = {}, mode = "artist_title") {
+  const answer = normalizeAnswer(answerText);
+  if (!answer) return false;
+
+  const artist = secret.artist || "";
+  const title = secret.title || "";
+  const artistAliases = buildAnswerAliases(artist, "artist");
+  const titleAliases = buildAnswerAliases(title, "title");
+
+  const needArtist = mode === "artist" || mode === "artist_title";
+  const needTitle = mode === "title" || mode === "artist_title";
+
+  const artistOk = !needArtist || normalizedContainsAlias(answer, artistAliases);
+  const titleOk = !needTitle || normalizedContainsAlias(answer, titleAliases);
+
+  return artistOk && titleOk;
+}
+
 export function getRoomIdFromUrl() {
   return normalizeRoomId(new URLSearchParams(window.location.search).get("room"));
 }
@@ -218,6 +317,8 @@ export function defaultRound() {
     winnerPlayerId: "",
     winnerTeamId: "",
     reveal: false,
+    endedAt: 0,
+    endReason: "",
     answers: {}
   };
 }
@@ -260,6 +361,7 @@ export function safeAnswers(round = {}) {
       at: Number(answer?.at || 0),
       accepted: answer?.accepted === true,
       refused: answer?.refused === true,
+      autoAccepted: answer?.autoAccepted === true,
       pointsAwarded: Number(answer?.pointsAwarded || 0)
     }))
     .sort((a, b) => a.at - b.at);
