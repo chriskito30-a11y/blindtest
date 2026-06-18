@@ -42,6 +42,8 @@ let selectedVideo = { videoId: "", title: "", url: "" };
 let timerId = null;
 let ytPlayer = null;
 let playerReady = false;
+let ytPlayerReadyPromise = null;
+let ytPlayerReadyResolve = null;
 let autoPausedRoundId = "";
 let autoFinishRoundId = "";
 let autoProcessingAnswerId = "";
@@ -826,7 +828,20 @@ function loadYoutubeApi() {
 
 async function ensurePlayer(videoId = "") {
   await loadYoutubeApi();
-  if (ytPlayer) return ytPlayer;
+
+  // Important : créer l'iframe YouTube ne veut pas dire qu'elle est déjà pilotable.
+  // Avant ce correctif, “Lancer la manche + YouTube” pouvait créer/précharger le lecteur,
+  // mais ne pas lancer la vidéo car playerReady était encore à false au moment du clic.
+  if (ytPlayer) {
+    if (playerReady) return ytPlayer;
+    await ytPlayerReadyPromise;
+    return ytPlayer;
+  }
+
+  ytPlayerReadyPromise = new Promise((resolve) => {
+    ytPlayerReadyResolve = resolve;
+  });
+
   ytPlayer = new window.YT.Player("youtubePlayer", {
     width: "100%",
     height: "100%",
@@ -841,10 +856,13 @@ async function ensurePlayer(videoId = "") {
       onReady: () => {
         playerReady = true;
         applyPlayerVolume();
+        if (typeof ytPlayerReadyResolve === "function") ytPlayerReadyResolve(ytPlayer);
         if (selectedVideo.videoId) cueSelectedVideo();
       }
     }
   });
+
+  await ytPlayerReadyPromise;
   return ytPlayer;
 }
 
@@ -957,12 +975,8 @@ async function startRound(options = {}) {
   try {
     if (selectedVideo.videoId) {
       await ensurePlayer(selectedVideo.videoId);
-      if (playerReady) {
-        ytPlayer.loadVideoById({ videoId: selectedVideo.videoId, startSeconds: youtubeStartAt });
-        refreshPlayerAudio();
-        ytPlayer.playVideo();
-        window.setTimeout(() => refreshPlayerAudio(), 300);
-      }
+      ytPlayer.loadVideoById({ videoId: selectedVideo.videoId, startSeconds: youtubeStartAt });
+      playYoutubeWithAudio();
     }
       autoPausedRoundId = "";
     autoFinishRoundId = "";
