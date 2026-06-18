@@ -45,8 +45,11 @@ let playerReady = false;
 let autoPausedRoundId = "";
 let autoFinishRoundId = "";
 let autoProcessingAnswerId = "";
+let preparedTracks = [];
+let currentPreparedIndex = -1;
 
 const apiKeyStorageKey = "blindMasterYoutubeApiKey";
+const playlistStorageKey = `blindMasterPreparedTracks:${roomId}`;
 
 if (!roomId) {
   $("#missingRoom").hidden = false;
@@ -84,6 +87,7 @@ function openAdmin() {
   $("#screenLink").href = publicUrl("screen.html", roomId);
   $("#voteLink").href = publicUrl("vote.html", roomId);
   $("#youtubeApiKeyInput").value = localStorage.getItem(apiKeyStorageKey) || "";
+  loadPreparedTracks();
 
   bindControls();
 
@@ -154,7 +158,238 @@ function bindControls() {
   $("#revealRoundBtn").addEventListener("click", () => revealRound("manual"));
   $("#resetRoundBtn").addEventListener("click", resetRound);
   $("#resetScoresBtn").addEventListener("click", resetScores);
+
+  $("#playerVolumeInput")?.addEventListener("input", () => {
+    const value = readPlayerVolumeInput();
+    localStorage.setItem(`blindMasterPlayerVolume:${roomId}`, String(value));
+    applyPlayerVolume(value);
+  });
+  $("#volumeDown10Btn")?.addEventListener("click", () => adjustPlayerVolume(-10));
+  $("#volumeUp10Btn")?.addEventListener("click", () => adjustPlayerVolume(10));
+  $("#saveTrackVolumeBtn")?.addEventListener("click", saveVolumeForCurrentPreparedTrack);
+  $("#applyVolumeToAllBtn")?.addEventListener("click", applyCurrentVolumeToAllPreparedTracks);
+  $("#addPreparedTrackBtn")?.addEventListener("click", addPreparedTrackFromCurrent);
+  $("#startPlaylistBtn")?.addEventListener("click", startPreparedPlaylist);
+  $("#loadNextTrackBtn")?.addEventListener("click", () => prepareNextPlaylistTrack(currentRound.playlistIndex ?? currentPreparedIndex));
+  $("#clearPlaylistBtn")?.addEventListener("click", clearPreparedTracks);
 }
+
+function clampVolume(value, fallback = 70) {
+  const parsed = Number.parseInt(value, 10);
+  if (!Number.isFinite(parsed)) return Math.min(100, Math.max(0, Number.parseInt(fallback, 10) || 70));
+  return Math.min(100, Math.max(0, parsed));
+}
+
+function getDefaultPlayerVolume() {
+  const saved = localStorage.getItem(`blindMasterPlayerVolume:${roomId}`);
+  const fallback = config.youtubePlayerVolume ?? 70;
+  return clampVolume(saved ?? fallback, fallback);
+}
+
+function readPlayerVolumeInput() {
+  return clampVolume($("#playerVolumeInput")?.value, getDefaultPlayerVolume());
+}
+
+function setPlayerVolumeInput(volume) {
+  const value = clampVolume(volume, getDefaultPlayerVolume());
+  if ($("#playerVolumeInput")) $("#playerVolumeInput").value = value;
+  return value;
+}
+
+function getPlayerVolume() {
+  return readPlayerVolumeInput();
+}
+
+function applyPlayerVolume(volume = null) {
+  const value = volume === null ? getPlayerVolume() : setPlayerVolumeInput(volume);
+  if (ytPlayer?.setVolume) ytPlayer.setVolume(value);
+  return value;
+}
+
+function adjustPlayerVolume(delta) {
+  const next = clampVolume(readPlayerVolumeInput() + delta, getDefaultPlayerVolume());
+  localStorage.setItem(`blindMasterPlayerVolume:${roomId}`, String(next));
+  applyPlayerVolume(next);
+  setStatus($("#playlistStatus"), `Volume courant : ${next} %. Clique sur “Mémoriser pour ce morceau” pour l’enregistrer dans la liste.`, "success");
+}
+
+function saveVolumeForCurrentPreparedTrack() {
+  if (currentPreparedIndex < 0 || !preparedTracks[currentPreparedIndex]) {
+    setStatus($("#playlistStatus"), "Charge d’abord un morceau de la liste, puis règle son volume.", "error");
+    return;
+  }
+  const volume = readPlayerVolumeInput();
+  preparedTracks[currentPreparedIndex].volume = volume;
+  savePreparedTracks();
+  applyPlayerVolume(volume);
+  setStatus($("#playlistStatus"), `Volume ${volume} % mémorisé pour : ${preparedTracks[currentPreparedIndex].artist} — ${preparedTracks[currentPreparedIndex].title}.`, "success");
+}
+
+function applyCurrentVolumeToAllPreparedTracks() {
+  if (!preparedTracks.length) {
+    setStatus($("#playlistStatus"), "Ajoute au moins un morceau avant d’appliquer un volume à la liste.", "error");
+    return;
+  }
+  const volume = readPlayerVolumeInput();
+  preparedTracks = preparedTracks.map((track) => ({ ...track, volume }));
+  savePreparedTracks();
+  applyPlayerVolume(volume);
+  setStatus($("#playlistStatus"), `Volume ${volume} % appliqué à toute la liste préparée.`, "success");
+}
+
+function loadPreparedTracks() {
+  try {
+    preparedTracks = JSON.parse(localStorage.getItem(playlistStorageKey) || "[]");
+  } catch {
+    preparedTracks = [];
+  }
+  if (!Array.isArray(preparedTracks)) preparedTracks = [];
+  preparedTracks = preparedTracks.filter((track) => track?.videoId);
+  renderPreparedTracks();
+}
+
+function savePreparedTracks() {
+  localStorage.setItem(playlistStorageKey, JSON.stringify(preparedTracks));
+  renderPreparedTracks();
+}
+
+function trackFromCurrent() {
+  const videoId = selectedVideo.videoId || extractYouTubeId($("#youtubeUrlInput").value);
+  if (!videoId) throw new Error("Sélectionne ou colle une vidéo YouTube avant d’ajouter le morceau.");
+  const artist = $("#artistInput").value.trim();
+  const title = $("#titleInput").value.trim();
+  if (!artist || !title) throw new Error("Renseigne l’artiste et le titre avant d’ajouter le morceau.");
+  return {
+    id: `track-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    videoId,
+    youtubeTitle: selectedVideo.title || "Vidéo YouTube sélectionnée",
+    channel: selectedVideo.channel || "",
+    artist,
+    title,
+    start: Number.parseInt($("#youtubeStartInput").value, 10) || 0,
+    durationSec: clampDuration($("#durationInput").value || config.durationSec),
+    volume: readPlayerVolumeInput(),
+    answerMode: $("#answerModeInput").value || config.answerMode,
+    answerInputMode: $("#answerInputModeInput").value || config.answerInputMode || "text"
+  };
+}
+
+function addPreparedTrackFromCurrent() {
+  try {
+    const track = trackFromCurrent();
+    preparedTracks.push(track);
+    currentPreparedIndex = preparedTracks.length - 1;
+    savePreparedTracks();
+    setStatus($("#playlistStatus"), `Morceau ajouté : ${track.artist} — ${track.title}.`, "success");
+  } catch (error) {
+    setStatus($("#playlistStatus"), error.message || "Impossible d’ajouter le morceau.", "error");
+  }
+}
+
+function clearPreparedTracks() {
+  preparedTracks = [];
+  currentPreparedIndex = -1;
+  savePreparedTracks();
+  setStatus($("#playlistStatus"), "Liste vidée.", "success");
+}
+
+async function loadPreparedTrack(index, cue = true) {
+  const track = preparedTracks[index];
+  if (!track) return false;
+  currentPreparedIndex = index;
+  selectedVideo = {
+    videoId: track.videoId,
+    title: track.youtubeTitle || `${track.artist} — ${track.title}`,
+    channel: track.channel || "",
+    url: youtubeWatchUrl(track.videoId, track.start || 0)
+  };
+  $("#youtubeUrlInput").value = selectedVideo.url;
+  $("#selectedVideoLabel").textContent = `Vidéo : ${selectedVideo.title}`;
+  $("#artistInput").value = track.artist || "";
+  $("#titleInput").value = track.title || "";
+  $("#youtubeStartInput").value = Number(track.start || 0);
+  $("#durationInput").value = clampDuration(track.durationSec || config.durationSec);
+  $("#answerModeInput").value = track.answerMode || config.answerMode;
+  $("#answerInputModeInput").value = track.answerInputMode || config.answerInputMode || "text";
+  const volume = clampVolume(track.volume ?? getDefaultPlayerVolume(), getDefaultPlayerVolume());
+  setPlayerVolumeInput(volume);
+  await ensurePlayer(track.videoId);
+  applyPlayerVolume(volume);
+  if (cue) cueSelectedVideo();
+  renderPreparedTracks();
+  return true;
+}
+
+async function startPreparedPlaylist() {
+  if (!preparedTracks.length) {
+    setStatus($("#playlistStatus"), "Ajoute au moins un morceau dans la liste.", "error");
+    return;
+  }
+  const index = currentPreparedIndex >= 0 ? currentPreparedIndex : 0;
+  await loadPreparedTrack(index, true);
+  await startRound({ playlistIndex: index, playlistTrackId: preparedTracks[index]?.id || "" });
+}
+
+async function prepareNextPlaylistTrack(fromIndex = -1) {
+  const base = Number.isFinite(Number(fromIndex)) ? Number(fromIndex) : -1;
+  const nextIndex = base + 1;
+  if (!preparedTracks[nextIndex]) {
+    setStatus($("#playlistStatus"), "Fin de la liste préparée.", "success");
+    return false;
+  }
+  await loadPreparedTrack(nextIndex, true);
+  setStatus($("#playlistStatus"), `Morceau suivant préchargé : ${preparedTracks[nextIndex].artist} — ${preparedTracks[nextIndex].title}.`, "success");
+  return true;
+}
+
+function renderPreparedTracks() {
+  const list = $("#playlistList");
+  if (!list) return;
+  list.innerHTML = "";
+  if (!preparedTracks.length) {
+    const empty = document.createElement("p");
+    empty.className = "muted";
+    empty.textContent = "Aucun morceau préparé pour le moment.";
+    list.appendChild(empty);
+    return;
+  }
+  preparedTracks.forEach((track, index) => {
+    const row = document.createElement("article");
+    row.className = "playlist-row";
+    if (index === currentPreparedIndex) row.classList.add("active");
+    const info = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${index + 1}. ${track.artist} — ${track.title}`;
+    const meta = document.createElement("small");
+    meta.textContent = `début ${track.start || 0}s · durée ${track.durationSec || config.durationSec}s · volume ${clampVolume(track.volume ?? getDefaultPlayerVolume(), getDefaultPlayerVolume())}% · ${track.answerInputMode === "buzzer" ? "buzzer" : "écrit"}`;
+    info.append(title, meta);
+    const actions = document.createElement("div");
+    actions.className = "tiny-actions";
+    const loadBtn = document.createElement("button");
+    loadBtn.type = "button";
+    loadBtn.textContent = "Charger";
+    loadBtn.addEventListener("click", () => loadPreparedTrack(index, true));
+    const startBtn = document.createElement("button");
+    startBtn.type = "button";
+    startBtn.textContent = "Lancer";
+    startBtn.addEventListener("click", async () => {
+      await loadPreparedTrack(index, true);
+      await startRound({ playlistIndex: index, playlistTrackId: track.id });
+    });
+    const removeBtn = document.createElement("button");
+    removeBtn.type = "button";
+    removeBtn.textContent = "Supprimer";
+    removeBtn.addEventListener("click", () => {
+      preparedTracks.splice(index, 1);
+      if (currentPreparedIndex >= preparedTracks.length) currentPreparedIndex = preparedTracks.length - 1;
+      savePreparedTracks();
+    });
+    actions.append(loadBtn, startBtn, removeBtn);
+    row.append(info, actions);
+    list.appendChild(row);
+  });
+}
+
 
 async function searchYoutube() {
   const query = $("#youtubeQueryInput").value.trim();
@@ -282,6 +517,7 @@ async function ensurePlayer(videoId = "") {
     events: {
       onReady: () => {
         playerReady = true;
+        applyPlayerVolume();
         if (selectedVideo.videoId) cueSelectedVideo();
       }
     }
@@ -319,13 +555,15 @@ function cueSelectedVideo() {
   if (!selectedVideo.videoId || !ytPlayer || !playerReady) return;
   const start = Number.parseInt($("#youtubeStartInput").value, 10) || 0;
   ytPlayer.cueVideoById({ videoId: selectedVideo.videoId, startSeconds: start });
+  applyPlayerVolume();
 }
 
-async function startRound() {
+async function startRound(options = {}) {
   const artist = $("#artistInput").value.trim();
   const title = $("#titleInput").value.trim();
   const durationSec = clampDuration($("#durationInput").value || config.durationSec);
   const answerMode = $("#answerModeInput").value || config.answerMode;
+  const answerInputMode = $("#answerInputModeInput").value || config.answerInputMode || "text";
   const youtubeStartAt = Number.parseInt($("#youtubeStartInput").value, 10) || 0;
 
   if (answerMode.includes("artist") && !artist) {
@@ -347,12 +585,16 @@ async function startRound() {
     startedAt: now,
     durationSec,
     answerMode,
+    answerInputMode,
+    playlistIndex: Number.isFinite(Number(options.playlistIndex)) ? Number(options.playlistIndex) : -1,
+    playlistTrackId: options.playlistTrackId || "",
     revealedArtist: "",
     revealedTitle: "",
     youtubeVideoId: selectedVideo.videoId || "",
     youtubeUrl: selectedVideo.videoId ? youtubeWatchUrl(selectedVideo.videoId, youtubeStartAt) : "",
     youtubeTitle: selectedVideo.title || "",
     youtubeStartAt,
+    playerVolume: readPlayerVolumeInput(),
     winnerAnswerId: "",
     winnerPlayerId: "",
     winnerTeamId: "",
@@ -370,6 +612,7 @@ async function startRound() {
       await ensurePlayer(selectedVideo.videoId);
       if (playerReady) {
         ytPlayer.loadVideoById({ videoId: selectedVideo.videoId, startSeconds: youtubeStartAt });
+        applyPlayerVolume();
         ytPlayer.playVideo();
       }
     }
@@ -384,6 +627,7 @@ async function startRound() {
         artist,
         title,
         answerMode,
+        answerInputMode,
         normalizedArtist: normalizeAnswer(artist),
         normalizedTitle: normalizeAnswer(title),
         createdAt: now
@@ -403,6 +647,7 @@ async function closeRound() {
 async function revealRound(reason = "manual") {
   const artist = secretRound.artist || $("#artistInput").value.trim();
   const title = secretRound.title || $("#titleInput").value.trim();
+  const playlistIndex = currentRound.playlistIndex;
   await update(ref(db, roomPath(roomId, "currentRound")), {
     active: false,
     status: "revealed",
@@ -413,6 +658,7 @@ async function revealRound(reason = "manual") {
     endReason: reason
   });
   ytPlayer?.pauseVideo?.();
+  if (playlistIndex >= 0) prepareNextPlaylistTrack(playlistIndex);
 }
 
 async function resetRound() {
@@ -515,6 +761,7 @@ async function awardAnswerParts(answerId, parts, options = {}) {
   const labels = cleanParts.map(partLabel).join(" + ");
   if (complete) {
     ytPlayer?.pauseVideo?.();
+    if (currentRound.playlistIndex >= 0) prepareNextPlaylistTrack(currentRound.playlistIndex);
     setStatus($("#roundStatus"), `${labels} trouvé${cleanParts.length > 1 ? "s" : ""} : manche terminée et réponse révélée.`, "success");
   } else {
     setStatus($("#roundStatus"), `${labels} trouvé${cleanParts.length > 1 ? "s" : ""} : +${newPoints} point${newPoints > 1 ? "s" : ""}. La manche continue.`, "success");
@@ -547,8 +794,13 @@ function render() {
   $("#adminTitle").textContent = config.title;
   $("#adminSubtitle").textContent = `${config.subtitle} · ${config.durationSec}s · ${answerModeLabel(config.answerMode)}`;
 
-  if (document.activeElement !== $("#durationInput")) $("#durationInput").value = currentRound?.active ? currentRound.durationSec : config.durationSec;
-  if (document.activeElement !== $("#answerModeInput")) $("#answerModeInput").value = currentRound?.active ? currentRound.answerMode : config.answerMode;
+  if (currentRound?.active && document.activeElement !== $("#durationInput")) $("#durationInput").value = currentRound.durationSec;
+  else if (!$("#durationInput").value) $("#durationInput").value = config.durationSec;
+  if (currentRound?.active && document.activeElement !== $("#answerModeInput")) $("#answerModeInput").value = currentRound.answerMode;
+  else if (!$("#answerModeInput").value) $("#answerModeInput").value = config.answerMode;
+  if (currentRound?.active && document.activeElement !== $("#answerInputModeInput")) $("#answerInputModeInput").value = currentRound.answerInputMode || config.answerInputMode;
+  else if (!$("#answerInputModeInput").value) $("#answerInputModeInput").value = config.answerInputMode;
+  applyPlayerVolume();
 
   const remaining = remainingSeconds(currentRound);
   const open = isRoundOpen(currentRound);
@@ -578,6 +830,7 @@ function render() {
 
   renderScoreboard();
   renderAnswers();
+  renderPreparedTracks();
   maybeAutoFinishRound(open, expired);
 }
 
@@ -586,6 +839,7 @@ function maybeAutoFinishRound(open, expired) {
   if (!secretRound?.roundId || secretRound.roundId !== currentRound.roundId) return;
 
   if (open) {
+    if ((currentRound.answerInputMode || config.answerInputMode) === "buzzer") return;
     if (autoProcessingAnswerId) return;
     const mode = currentRound.answerMode || config.answerMode;
     const missing = missingRequiredParts(currentRound, mode);
@@ -678,7 +932,7 @@ function renderAnswers() {
 
     const text = document.createElement("p");
     text.className = "answer-text";
-    text.textContent = answer.text;
+    text.textContent = answer.type === "buzz" ? "🔔 BUZZER — réponse orale à valider par l’arbitre" : answer.text;
 
     const parts = document.createElement("p");
     parts.className = "muted small-note";
@@ -686,8 +940,8 @@ function renderAnswers() {
     if (answer.matchedArtist) won.push(`✅ Artiste +${answer.pointsArtist || 0}`);
     if (answer.matchedTitle) won.push(`✅ Titre +${answer.pointsTitle || 0}`);
     if (answer.pointsBonus) won.push(`⭐ Bonus +${answer.pointsBonus}`);
-    const detectedLabels = detected.map((part) => `détecté : ${partLabel(part).toLowerCase()}`);
-    parts.textContent = won.length ? won.join(" · ") : detectedLabels.length ? detectedLabels.join(" · ") : "Aucun élément reconnu automatiquement.";
+    const detectedLabels = answer.type === "buzz" ? [] : detected.map((part) => `détecté : ${partLabel(part).toLowerCase()}`);
+    parts.textContent = won.length ? won.join(" · ") : answer.type === "buzz" ? "Buzzer : l’arbitre valide ou refuse après la réponse orale." : detectedLabels.length ? detectedLabels.join(" · ") : "Aucun élément reconnu automatiquement.";
 
     const bottom = document.createElement("div");
     bottom.className = "tiny-actions";
@@ -706,9 +960,11 @@ function renderAnswers() {
 
     const autoBtn = document.createElement("button");
     autoBtn.type = "button";
-    autoBtn.textContent = awardable.length ? `Attribuer détecté : ${awardable.map(partLabel).join(" + ")}` : "Rien à attribuer";
-    autoBtn.disabled = !awardable.length || currentRound.status !== "playing" || answer.refused;
-    autoBtn.addEventListener("click", () => awardAnswerParts(answer.id, awardable, { auto: false }));
+    const buzzParts = missing.filter((part) => mode.includes(part));
+    const manualParts = answer.type === "buzz" ? buzzParts : awardable;
+    autoBtn.textContent = answer.type === "buzz" ? `Valider réponse orale : ${buzzParts.map(partLabel).join(" + ")}` : awardable.length ? `Attribuer détecté : ${awardable.map(partLabel).join(" + ")}` : "Rien à attribuer";
+    autoBtn.disabled = !manualParts.length || currentRound.status !== "playing" || answer.refused;
+    autoBtn.addEventListener("click", () => awardAnswerParts(answer.id, manualParts, { auto: false }));
 
     const refuse = document.createElement("button");
     refuse.type = "button";

@@ -8,6 +8,8 @@ export const DEFAULT_CONFIG = {
   subtitle: "Blind test live · Fais Ton Show",
   durationSec: 20,
   answerMode: "artist_title",
+  answerInputMode: "text",
+  youtubePlayerVolume: 70,
   allowTeamCreation: true,
   maxAnswersPerPlayer: 5,
   pointsFirst: 5,
@@ -366,7 +368,9 @@ export function safeConfig(config = {}) {
     pointsThird: clampPoints(merged.pointsThird, DEFAULT_CONFIG.pointsThird),
     allowTeamCreation: merged.allowTeamCreation !== false,
     revealAnswerOnScreen: merged.revealAnswerOnScreen !== false,
-    answerMode: ["title", "artist", "artist_title"].includes(merged.answerMode) ? merged.answerMode : "artist_title"
+    answerMode: ["title", "artist", "artist_title"].includes(merged.answerMode) ? merged.answerMode : "artist_title",
+    answerInputMode: ["text", "buzzer"].includes(merged.answerInputMode) ? merged.answerInputMode : "text",
+    youtubePlayerVolume: Math.min(100, Math.max(0, Number.parseInt(merged.youtubePlayerVolume, 10) || DEFAULT_CONFIG.youtubePlayerVolume))
   };
 }
 
@@ -379,6 +383,9 @@ export function defaultRound() {
     startedAt: 0,
     durationSec: DEFAULT_CONFIG.durationSec,
     answerMode: DEFAULT_CONFIG.answerMode,
+    answerInputMode: DEFAULT_CONFIG.answerInputMode,
+    playlistIndex: -1,
+    playlistTrackId: "",
     artist: "",
     title: "",
     youtubeVideoId: "",
@@ -432,6 +439,7 @@ export function safeAnswers(round = {}) {
       teamId: normalizeTeamId(answer?.teamId),
       teamName: String(answer?.teamName || "Équipe"),
       text: String(answer?.text || ""),
+      type: answer?.type === "buzz" ? "buzz" : "text",
       normalized: String(answer?.normalized || normalizeAnswer(answer?.text || "")),
       at: Number(answer?.at || 0),
       accepted: answer?.accepted === true,

@@ -42,6 +42,8 @@ const fields = {
   subtitle: $("#subtitleInput"),
   durationSec: $("#durationInput"),
   answerMode: $("#answerModeInput"),
+  answerInputMode: $("#answerInputModeInput"),
+  youtubePlayerVolume: $("#youtubePlayerVolumeInput"),
   maxAnswersPerPlayer: $("#maxAnswersInput"),
   pointsFirst: $("#pointsFirstInput"),
   pointsSecond: $("#pointsSecondInput"),
@@ -157,6 +159,8 @@ $("#settingsForm")?.addEventListener("submit", async (event) => {
     subtitle: fields.subtitle.value.trim() || "Blind test live · Fais Ton Show",
     durationSec: clampDuration(fields.durationSec.value),
     answerMode: fields.answerMode.value,
+    answerInputMode: fields.answerInputMode.value,
+    youtubePlayerVolume: Math.min(100, Math.max(0, Number.parseInt(fields.youtubePlayerVolume.value, 10) || 70)),
     maxAnswersPerPlayer: clampAttempts(fields.maxAnswersPerPlayer.value),
     pointsFirst: clampPoints(fields.pointsFirst.value, 5),
     pointsSecond: clampPoints(fields.pointsSecond.value, 5),
@@ -170,7 +174,8 @@ $("#settingsForm")?.addEventListener("submit", async (event) => {
     await update(ref(db, roomPath(roomId, "config")), payload);
     await update(ref(db, roomPath(roomId, "currentRound")), {
       durationSec: payload.durationSec,
-      answerMode: payload.answerMode
+      answerMode: payload.answerMode,
+      answerInputMode: payload.answerInputMode
     });
     setStatus(saveStatus, "Réglages enregistrés.", "success");
   } catch (error) {

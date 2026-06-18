@@ -80,8 +80,27 @@
             <button id="playBtn" class="primary-btn" type="button">Lecture</button>
             <button id="pauseBtn" class="ghost-btn" type="button">Pause</button>
             <button id="stopBtn" class="ghost-btn" type="button">Stop</button>
+            <label class="inline-field"><span>Volume extrait</span><input id="playerVolumeInput" type="number" min="0" max="100" step="1" value="70" /></label>
+            <button id="volumeDown10Btn" class="ghost-btn" type="button">−10 %</button>
+            <button id="volumeUp10Btn" class="ghost-btn" type="button">+10 %</button>
+            <button id="saveTrackVolumeBtn" class="secondary-btn" type="button">Mémoriser pour ce morceau</button>
+            <button id="applyVolumeToAllBtn" class="ghost-btn" type="button">Appliquer à toute la liste</button>
           </div>
           <p id="selectedVideoLabel" class="muted">Aucune vidéo sélectionnée.</p>
+
+          <div class="playlist-box">
+            <div class="section-head">
+              <div><h3>Préparer la partie</h3><p class="muted small-note">Ajoute les morceaux dans l’ordre voulu. La liste est mémorisée sur cet appareil.</p></div>
+            </div>
+            <div class="actions-row">
+              <button id="addPreparedTrackBtn" class="secondary-btn" type="button">Ajouter le morceau préparé</button>
+              <button id="startPlaylistBtn" class="primary-btn" type="button">Lancer la liste</button>
+              <button id="loadNextTrackBtn" class="ghost-btn" type="button">Précharger suivant</button>
+              <button id="clearPlaylistBtn" class="danger-btn" type="button">Vider la liste</button>
+            </div>
+            <p id="playlistStatus" class="status-text"></p>
+            <div id="playlistList" class="playlist-list"></div>
+          </div>
         </section>
 
         <section class="panel-card round-card">
@@ -94,7 +113,8 @@
             <div class="two-cols three-soft">
               <label><span>Début extrait, secondes</span><input id="youtubeStartInput" type="number" min="0" step="1" value="0" /></label>
               <label><span>Durée, secondes</span><input id="durationInput" type="number" min="5" max="180" step="1" /></label>
-              <label><span>Mode</span><select id="answerModeInput"><option value="artist_title">Artiste + titre</option><option value="title">Titre</option><option value="artist">Artiste</option></select></label>
+              <label><span>Mode réponse</span><select id="answerModeInput"><option value="artist_title">Artiste + titre</option><option value="title">Titre</option><option value="artist">Artiste</option></select></label>
+              <label><span>Mode joueur</span><select id="answerInputModeInput"><option value="text">Réponse écrite</option><option value="buzzer">Buzzer oral</option></select></label>
             </div>
           </form>
 

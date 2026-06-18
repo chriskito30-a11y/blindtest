@@ -81,6 +81,7 @@ function bindJoin() {
     render();
   });
   $("#answerForm").addEventListener("submit", sendAnswer);
+  $("#buzzBtn")?.addEventListener("click", sendBuzz);
 
   if (player?.name) {
     $("#playerNameInput").value = player.name;
@@ -227,6 +228,32 @@ async function joinPlayer(event) {
   render();
 }
 
+async function sendBuzz() {
+  if (!player?.id || !isRoundOpen(currentRound)) return;
+  if ((currentRound.answerInputMode || config.answerInputMode) !== "buzzer") return;
+  const answers = safeAnswers(currentRound).filter((answer) => answer.playerId === player.id);
+  if (answers.length >= 1) {
+    render();
+    return;
+  }
+  const team = teams.find((item) => item.id === player.teamId);
+  const answerId = `${Date.now()}-${player.id.slice(0, 10)}`;
+  await set(ref(db, roomPath(roomId, `currentRound/answers/${answerId}`)), {
+    playerId: player.id,
+    playerName: player.name,
+    teamId: player.teamId,
+    teamName: team?.name || player.teamName || "Équipe",
+    text: "BUZZ",
+    type: "buzz",
+    normalized: "buzz",
+    at: Date.now(),
+    accepted: false,
+    refused: false,
+    pointsAwarded: 0
+  });
+  render();
+}
+
 async function sendAnswer(event) {
   event.preventDefault();
   if (!player?.id || !isRoundOpen(currentRound)) return;
@@ -281,15 +308,21 @@ function render() {
   const remaining = remainingSeconds(currentRound);
   const open = isRoundOpen(currentRound);
   const answers = safeAnswers(currentRound).filter((answer) => answer.playerId === player.id);
+  const inputMode = currentRound.answerInputMode || config.answerInputMode || "text";
+  const isBuzzer = inputMode === "buzzer";
   const attemptsLeft = Math.max(0, config.maxAnswersPerPlayer - answers.length);
   const canAnswer = open && attemptsLeft > 0;
+  const canBuzz = open && answers.length < 1;
 
-  $("#answerInput").disabled = !canAnswer;
-  $("#sendAnswerBtn").disabled = !canAnswer;
+  $("#answerForm").hidden = isBuzzer;
+  $("#buzzerBox").hidden = !isBuzzer;
+  $("#answerInput").disabled = !canAnswer || isBuzzer;
+  $("#sendAnswerBtn").disabled = !canAnswer || isBuzzer;
+  $("#buzzBtn").disabled = !canBuzz;
 
   if (open) {
     $("#voteTimer").textContent = formatTimer(remaining);
-    $("#voteMessage").textContent = attemptsLeft > 0 ? `Réponds vite ! Tentatives restantes : ${attemptsLeft}. Tu peux tenter l’artiste, le titre ou les deux.` : "Limite de réponses atteinte pour cette manche.";
+    $("#voteMessage").textContent = isBuzzer ? (canBuzz ? "Appuie sur le buzzer pour prendre la main, puis réponds à l’oral." : "Buzz enregistré. Attends la décision de l’arbitre.") : (attemptsLeft > 0 ? `Réponds vite ! Tentatives restantes : ${attemptsLeft}. Tu peux tenter l’artiste, le titre ou les deux.` : "Limite de réponses atteinte pour cette manche.");
   } else if (currentRound?.status === "revealed" && currentRound?.reveal) {
     $("#voteTimer").textContent = currentRound?.winnerAnswerId ? "Trouvé !" : "Révélé";
     const expected = [currentRound.revealedArtist, currentRound.revealedTitle].filter(Boolean).join(" — ");
@@ -318,7 +351,8 @@ function renderHistory(answers) {
     if (answer.matchedArtist) parts.push(`artiste +${answer.pointsArtist || 0}`);
     if (answer.matchedTitle) parts.push(`titre +${answer.pointsTitle || 0}`);
     if (answer.pointsBonus) parts.push(`bonus +${answer.pointsBonus}`);
-    item.textContent = answer.accepted ? `✅ ${answer.text} (${parts.join(" · ") || `+${answer.pointsAwarded}`})` : answer.refused ? `❌ ${answer.text}` : `Envoyé : ${answer.text}`;
+    const label = answer.type === "buzz" ? "BUZZER" : answer.text;
+    item.textContent = answer.accepted ? `✅ ${label} (${parts.join(" · ") || `+${answer.pointsAwarded}`})` : answer.refused ? `❌ ${label}` : answer.type === "buzz" ? "🔔 Buzz envoyé" : `Envoyé : ${answer.text}`;
     box.appendChild(item);
   });
 }

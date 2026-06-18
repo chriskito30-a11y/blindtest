@@ -59,14 +59,25 @@
             <label><span>Tentatives par joueur</span><input id="maxAnswersInput" type="number" min="2" max="10" step="1" /></label>
           </div>
 
-          <label>
-            <span>Réponse attendue</span>
-            <select id="answerModeInput">
-              <option value="artist_title">Artiste + titre</option>
-              <option value="title">Titre uniquement</option>
-              <option value="artist">Artiste uniquement</option>
-            </select>
-          </label>
+          <div class="two-cols">
+            <label>
+              <span>Réponse attendue</span>
+              <select id="answerModeInput">
+                <option value="artist_title">Artiste + titre</option>
+                <option value="title">Titre uniquement</option>
+                <option value="artist">Artiste uniquement</option>
+              </select>
+            </label>
+            <label>
+              <span>Mode joueur par défaut</span>
+              <select id="answerInputModeInput">
+                <option value="text">Réponse écrite</option>
+                <option value="buzzer">Buzzer oral</option>
+              </select>
+            </label>
+          </div>
+
+          <label><span>Volume YouTube arbitre, 0 à 100</span><input id="youtubePlayerVolumeInput" type="number" min="0" max="100" step="1" /></label>
 
           <div class="two-cols three-soft">
             <label><span>Points artiste</span><input id="pointsFirstInput" type="number" min="0" max="99" /></label>
