@@ -1352,7 +1352,12 @@ function render() {
 
   renderScoreboard();
   renderAnswers();
-  renderPreparedTracks();
+  // Ne pas reconstruire la liste préparée à chaque tick de rendu.
+  // Le rendu général tourne toutes les 250 ms pour le chrono : si on recrée
+  // les champs de la playlist ici, le clic/focus de l’arbitre est perdu et
+  // les inputs deviennent pratiquement impossibles à modifier.
+  // La liste est déjà rafraîchie aux vrais moments utiles : chargement, ajout,
+  // sauvegarde, suppression, duplication ou changement de morceau actif.
   maybeAutoFinishRound(open, expired);
 }
 
