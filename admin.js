@@ -44,6 +44,7 @@ let ytPlayer = null;
 let playerReady = false;
 let ytPlayerReadyPromise = null;
 let ytPlayerReadyResolve = null;
+let youtubeApiPromise = null;
 let autoPausedRoundId = "";
 let autoFinishRoundId = "";
 let autoProcessingAnswerId = "";
@@ -208,8 +209,8 @@ function bindControls() {
 
   $("#cueBtn").addEventListener("click", () => cueSelectedVideo());
   $("#playBtn").addEventListener("click", () => playYoutubeWithAudio());
-  $("#pauseBtn").addEventListener("click", () => ytPlayer?.pauseVideo?.());
-  $("#stopBtn").addEventListener("click", () => ytPlayer?.stopVideo?.());
+  $("#pauseBtn").addEventListener("click", pauseYoutube);
+  $("#stopBtn").addEventListener("click", stopYoutube);
 
   $("#startRoundBtn").addEventListener("click", startRoundFromMainButton);
   $("#closeRoundBtn").addEventListener("click", closeRound);
@@ -272,9 +273,11 @@ function getPlayerVolume() {
 function applyPlayerVolume(volume = null) {
   const value = volume === null ? getPlayerVolume() : setPlayerVolumeInput(volume);
   if (ytPlayer?.setVolume) ytPlayer.setVolume(value);
+  postYoutubeCommand("setVolume", [value]);
   // YouTube peut parfois rester en muet après un cue/load ou après une prélecture.
   // On force donc explicitement la sortie du mode muet à chaque application du volume.
   if (ytPlayer?.unMute) ytPlayer.unMute();
+  postYoutubeCommand("unMute");
   return value;
 }
 
@@ -287,44 +290,118 @@ function refreshPlayerAudio(volume = null) {
   return value;
 }
 
-function configureYoutubeIframe() {
-  const iframe = ytPlayer?.getIframe?.() || document.querySelector("#youtubePlayer iframe");
+function youtubeEmbedSrc(videoId, startSeconds = 0, autoplay = false) {
+  const cleanId = extractYouTubeId(videoId);
+  if (!cleanId) return "";
+  const params = new URLSearchParams({
+    playsinline: "1",
+    enablejsapi: "1",
+    rel: "0",
+    modestbranding: "1"
+  });
+  const start = Math.max(0, Number.parseInt(startSeconds, 10) || 0);
+  if (start > 0) params.set("start", String(start));
+  if (autoplay) params.set("autoplay", "1");
+  if (window.location.origin && window.location.origin !== "null") {
+    params.set("origin", window.location.origin);
+  }
+  return `https://www.youtube.com/embed/${encodeURIComponent(cleanId)}?${params.toString()}`;
+}
+
+function getYoutubeIframe() {
+  const apiIframe = ytPlayer?.getIframe?.();
+  if (apiIframe) return apiIframe;
+  const target = document.getElementById("youtubePlayer");
+  if (!target) return null;
+  if (target.tagName === "IFRAME") return target;
+  return target.querySelector("iframe");
+}
+
+function configureYoutubeIframe(iframe = getYoutubeIframe()) {
   if (!iframe) return null;
   iframe.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture; fullscreen");
   iframe.setAttribute("allowfullscreen", "true");
+  iframe.setAttribute("referrerpolicy", "strict-origin-when-cross-origin");
+  iframe.style.width = "100%";
+  iframe.style.height = "100%";
+  iframe.style.border = "0";
   return iframe;
 }
 
+function createOrUpdateYoutubeIframe(videoId, startSeconds = 0, autoplay = false) {
+  const src = youtubeEmbedSrc(videoId, startSeconds, autoplay);
+  const target = document.getElementById("youtubePlayer");
+  if (!target || !src) return null;
+
+  let iframe = getYoutubeIframe();
+  if (!iframe || (target.tagName !== "IFRAME" && !target.contains(iframe))) {
+    iframe = document.createElement("iframe");
+    iframe.title = selectedVideo.title || "Lecteur YouTube";
+    iframe.loading = "eager";
+    if (target.tagName === "IFRAME") {
+      iframe = target;
+    } else {
+      target.textContent = "";
+      target.classList.remove("youtube-player-placeholder");
+      target.appendChild(iframe);
+    }
+  }
+
+  configureYoutubeIframe(iframe);
+  if (iframe.src !== src) iframe.src = src;
+  return iframe;
+}
+
+function cueYoutubeFrame(videoId = selectedVideo.videoId, startSeconds = 0) {
+  return Boolean(createOrUpdateYoutubeIframe(videoId, startSeconds, false));
+}
+
 function forceYoutubeIframeAutoplay(videoId, startSeconds = 0) {
+  return Boolean(createOrUpdateYoutubeIframe(videoId, startSeconds, true));
+}
+
+function postYoutubeCommand(command, args = []) {
   const iframe = configureYoutubeIframe();
-  if (!iframe || !videoId) return false;
-  const origin = encodeURIComponent(window.location.origin);
-  const start = Math.max(0, Number.parseInt(startSeconds, 10) || 0);
-  iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&start=${start}&playsinline=1&enablejsapi=1&origin=${origin}&rel=0&modestbranding=1`;
+  if (!iframe?.contentWindow) return false;
+  iframe.contentWindow.postMessage(JSON.stringify({ event: "command", func: command, args }), "https://www.youtube.com");
   return true;
 }
 
-function playYoutubeWithAudio(videoId = selectedVideo.videoId, startSeconds = 0) {
-  if (!ytPlayer) return false;
-  configureYoutubeIframe();
-  refreshPlayerAudio();
-  try { ytPlayer.playVideo?.(); } catch {}
-  window.setTimeout(() => refreshPlayerAudio(), 250);
+function pauseYoutube() {
+  try { ytPlayer?.pauseVideo?.(); } catch {}
+  postYoutubeCommand("pauseVideo");
+}
 
-  // Si l'API iframe ne démarre pas vraiment la vidéo, on force le src officiel avec autoplay.
-  // Cela garde le clic arbitre comme déclencheur utilisateur et évite le cas où load/play est ignoré.
-  window.setTimeout(() => {
-    let state = null;
-    try { state = ytPlayer.getPlayerState?.(); } catch {}
-    // YT.PlayerState.PLAYING = 1 ; BUFFERING = 3. Les autres états indiquent que rien ne part.
-    if (state !== 1 && state !== 3 && videoId) {
-      forceYoutubeIframeAutoplay(videoId, startSeconds);
-      window.setTimeout(() => {
-        try { ytPlayer.playVideo?.(); } catch {}
-        refreshPlayerAudio();
-      }, 350);
+function stopYoutube() {
+  try { ytPlayer?.stopVideo?.(); } catch {}
+  postYoutubeCommand("stopVideo");
+}
+
+function playYoutubeWithAudio(videoId = selectedVideo.videoId, startSeconds = 0) {
+  const cleanId = extractYouTubeId(videoId);
+  if (!cleanId) return false;
+
+  // Cause du bug : auparavant on attendait l'événement onReady de l'API YouTube.
+  // S'il n'arrivait pas assez vite, le clic utilisateur était perdu et autoplay était bloqué.
+  // Ici, le src autoplay est posé immédiatement pendant le clic arbitre, sans attendre l'API.
+  forceYoutubeIframeAutoplay(cleanId, startSeconds);
+
+  if (ytPlayer) {
+    configureYoutubeIframe();
+    refreshPlayerAudio();
+    try { ytPlayer.loadVideoById({ videoId: cleanId, startSeconds }); } catch {
+      try { ytPlayer.loadVideoById(cleanId, startSeconds); } catch {}
     }
-  }, 650);
+    try { ytPlayer.playVideo?.(); } catch {}
+    window.setTimeout(() => refreshPlayerAudio(), 250);
+    window.setTimeout(() => {
+      let state = null;
+      try { state = ytPlayer.getPlayerState?.(); } catch {}
+      if (state !== 1 && state !== 3) forceYoutubeIframeAutoplay(cleanId, startSeconds);
+    }, 650);
+  } else {
+    window.setTimeout(() => postYoutubeCommand("playVideo"), 250);
+  }
   return true;
 }
 
@@ -471,7 +548,7 @@ function clearPreparedTracks() {
   setStatus($("#playlistStatus"), "Liste vidée.", "success");
 }
 
-async function loadPreparedTrack(index, cue = true) {
+function loadPreparedTrack(index, cue = true) {
   const track = preparedTracks[index];
   if (!track) return false;
   savePlaylistCursor(index);
@@ -491,7 +568,6 @@ async function loadPreparedTrack(index, cue = true) {
   $("#answerInputModeInput").value = track.answerInputMode || config.answerInputMode || "text";
   const volume = clampVolume(track.volume ?? getDefaultPlayerVolume(), getDefaultPlayerVolume());
   setPlayerVolumeInput(volume);
-  await ensurePlayer(track.videoId);
   applyPlayerVolume(volume);
   if (cue) cueSelectedVideo();
   renderPreparedTracks();
@@ -536,7 +612,7 @@ async function startCurrentPreparedTrack() {
 
   playlistModeActive = true;
   savePlaylistCursor(index);
-  const loaded = await loadPreparedTrack(index, true);
+  const loaded = loadPreparedTrack(index, true);
   if (!loaded) return false;
   const payload = await startRound({ playlistIndex: index, playlistTrackId: track.id || "" });
   if (!payload) return false;
@@ -686,7 +762,7 @@ function renderPreparedTracks() {
     startBtn.addEventListener("click", async () => {
       playlistModeActive = true;
       savePlaylistCursor(index);
-      await loadPreparedTrack(index, true);
+      loadPreparedTrack(index, true);
       await startCurrentPreparedTrack();
     });
 
@@ -843,32 +919,47 @@ async function getYoutubeVideoDetails(videoId) {
   }
 }
 
-function loadYoutubeApi() {
+function timeoutResolve(ms, value = null) {
+  return new Promise((resolve) => window.setTimeout(() => resolve(value), ms));
+}
+
+function loadYoutubeApi(timeoutMs = 2500) {
   if (window.YT?.Player) return Promise.resolve(window.YT);
-  return new Promise((resolve) => {
+  if (youtubeApiPromise) return youtubeApiPromise;
+
+  youtubeApiPromise = new Promise((resolve) => {
+    let done = false;
+    const finish = (value) => {
+      if (done) return;
+      done = true;
+      resolve(value);
+    };
     const previous = window.onYouTubeIframeAPIReady;
     window.onYouTubeIframeAPIReady = () => {
       if (typeof previous === "function") previous();
-      resolve(window.YT);
+      finish(window.YT || null);
     };
     if (!document.querySelector("script[data-youtube-iframe-api]")) {
       const script = document.createElement("script");
       script.src = "https://www.youtube.com/iframe_api";
       script.dataset.youtubeIframeApi = "true";
+      script.async = true;
+      script.onerror = () => finish(null);
       document.head.appendChild(script);
     }
+    window.setTimeout(() => finish(window.YT?.Player ? window.YT : null), timeoutMs);
   });
+
+  return youtubeApiPromise;
 }
 
 async function ensurePlayer(videoId = "") {
-  await loadYoutubeApi();
+  const YTApi = await loadYoutubeApi();
+  if (!YTApi?.Player) return null;
 
-  // Important : créer l'iframe YouTube ne veut pas dire qu'elle est déjà pilotable.
-  // Avant ce correctif, “Lancer la manche + YouTube” pouvait créer/précharger le lecteur,
-  // mais ne pas lancer la vidéo car playerReady était encore à false au moment du clic.
   if (ytPlayer) {
     if (playerReady) return ytPlayer;
-    await ytPlayerReadyPromise;
+    await Promise.race([ytPlayerReadyPromise || Promise.resolve(null), timeoutResolve(1500)]);
     return ytPlayer;
   }
 
@@ -876,29 +967,37 @@ async function ensurePlayer(videoId = "") {
     ytPlayerReadyResolve = resolve;
   });
 
-  ytPlayer = new window.YT.Player("youtubePlayer", {
-    width: "100%",
-    height: "100%",
-    videoId: videoId || undefined,
-    playerVars: {
-      playsinline: 1,
-      rel: 0,
-      modestbranding: 1,
-      enablejsapi: 1,
-      origin: window.location.origin
-    },
-    events: {
-      onReady: () => {
-        playerReady = true;
-        applyPlayerVolume();
-        if (typeof ytPlayerReadyResolve === "function") ytPlayerReadyResolve(ytPlayer);
-        if (selectedVideo.videoId) cueSelectedVideo();
-      }
-    }
-  });
-  configureYoutubeIframe();
+  const origin = window.location.origin && window.location.origin !== "null" ? window.location.origin : undefined;
+  const playerVars = {
+    playsinline: 1,
+    rel: 0,
+    modestbranding: 1,
+    enablejsapi: 1
+  };
+  if (origin) playerVars.origin = origin;
 
-  await ytPlayerReadyPromise;
+  try {
+    ytPlayer = new YTApi.Player("youtubePlayer", {
+      width: "100%",
+      height: "100%",
+      videoId: videoId || undefined,
+      playerVars,
+      events: {
+        onReady: () => {
+          playerReady = true;
+          applyPlayerVolume();
+          if (typeof ytPlayerReadyResolve === "function") ytPlayerReadyResolve(ytPlayer);
+          if (selectedVideo.videoId) cueSelectedVideo();
+        }
+      }
+    });
+    configureYoutubeIframe();
+    await Promise.race([ytPlayerReadyPromise, timeoutResolve(1500)]);
+  } catch {
+    ytPlayer = null;
+    playerReady = false;
+  }
+
   return ytPlayer;
 }
 
@@ -912,7 +1011,6 @@ async function setSelectedVideo(video) {
   $("#youtubeUrlInput").value = selectedVideo.url;
   $("#selectedVideoLabel").textContent = `Vidéo : ${selectedVideo.title}`;
   autoFillExpectedFromVideo(selectedVideo.title, selectedVideo.channel);
-  await ensurePlayer(selectedVideo.videoId);
   cueSelectedVideo();
 }
 
@@ -929,15 +1027,18 @@ function autoFillExpectedFromVideo(title, channel = "") {
 }
 
 function cueSelectedVideo() {
-  if (!selectedVideo.videoId || !ytPlayer || !playerReady) return;
+  if (!selectedVideo.videoId) return;
   const start = Number.parseInt($("#youtubeStartInput").value, 10) || 0;
-  configureYoutubeIframe();
-  try {
-    ytPlayer.cueVideoById({ videoId: selectedVideo.videoId, startSeconds: start });
-  } catch {
-    try { ytPlayer.cueVideoById(selectedVideo.videoId, start); } catch {}
+  cueYoutubeFrame(selectedVideo.videoId, start);
+  if (ytPlayer && playerReady) {
+    configureYoutubeIframe();
+    try {
+      ytPlayer.cueVideoById({ videoId: selectedVideo.videoId, startSeconds: start });
+    } catch {
+      try { ytPlayer.cueVideoById(selectedVideo.videoId, start); } catch {}
+    }
+    refreshPlayerAudio();
   }
-  refreshPlayerAudio();
 }
 
 async function startRoundFromMainButton() {
@@ -1015,12 +1116,6 @@ async function startRound(options = {}) {
 
   try {
     if (selectedVideo.videoId) {
-      await ensurePlayer(selectedVideo.videoId);
-      try {
-        ytPlayer.loadVideoById({ videoId: selectedVideo.videoId, startSeconds: youtubeStartAt });
-      } catch {
-        try { ytPlayer.loadVideoById(selectedVideo.videoId, youtubeStartAt); } catch {}
-      }
       playYoutubeWithAudio(selectedVideo.videoId, youtubeStartAt);
     }
       autoPausedRoundId = "";
