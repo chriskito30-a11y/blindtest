@@ -101,6 +101,22 @@ function closeYoutubeApiHelp() {
   $("#youtubeApiHelpBtn")?.focus();
 }
 
+function openYoutubeAdsHelp() {
+  const modal = $("#youtubeAdsHelpModal");
+  if (!modal) return;
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+  $("#youtubeAdsHelpCloseBtn")?.focus();
+}
+
+function closeYoutubeAdsHelp() {
+  const modal = $("#youtubeAdsHelpModal");
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.classList.remove("modal-open");
+  $("#youtubeAdsHelpBtn")?.focus();
+}
+
 function openAdmin() {
   $("#authPanel").hidden = true;
   $("#adminPanel").hidden = false;
