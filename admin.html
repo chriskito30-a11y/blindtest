@@ -56,7 +56,10 @@
 
           <div class="api-key-row">
             <label><span>Clé YouTube Data API, optionnelle</span><input id="youtubeApiKeyInput" type="password" placeholder="Coller une clé API restreinte par domaine" /></label>
-            <button id="saveApiKeyBtn" class="ghost-btn" type="button">Mémoriser sur cet appareil</button>
+            <div class="api-key-actions">
+              <button id="saveApiKeyBtn" class="ghost-btn" type="button">Mémoriser sur cet appareil</button>
+              <button id="youtubeApiHelpBtn" class="ghost-btn" type="button">Aide clé API</button>
+            </div>
           </div>
 
           <form id="youtubeSearchForm" class="search-row">
@@ -149,6 +152,54 @@
       </div>
     </section>
   </main>
+
+
+  <div id="youtubeApiHelpModal" class="modal-overlay" hidden>
+    <div class="modal-card api-help-card" role="dialog" aria-modal="true" aria-labelledby="youtubeApiHelpTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="youtubeApiHelpTitle">Retrouver ou créer une clé YouTube API</h2>
+          <p class="muted">Cette clé sert uniquement à activer la recherche YouTube intégrée. Tu peux aussi continuer à coller des liens YouTube sans clé API.</p>
+        </div>
+        <button id="youtubeApiHelpCloseBtn" class="ghost-btn modal-close" type="button" aria-label="Fermer l’aide">×</button>
+      </div>
+
+      <div class="api-help-content">
+        <section class="api-help-section">
+          <h3>Pour retrouver une clé déjà créée</h3>
+          <ol>
+            <li>Ouvre la page officielle <strong>Identifiants / Credentials</strong> de Google Cloud.</li>
+            <li>Vérifie que tu es connecté au bon compte Google.</li>
+            <li>En haut de Google Cloud, sélectionne le bon projet.</li>
+            <li>Dans la liste des clés, cherche une clé nommée par exemple <strong>YouTube</strong>, <strong>Blindtest</strong> ou <strong>API key</strong>.</li>
+            <li>Copie la clé, puis colle-la dans le champ de l’application.</li>
+          </ol>
+          <a class="primary-link api-help-link" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Ouvrir les identifiants Google Cloud</a>
+        </section>
+
+        <section class="api-help-section">
+          <h3>Pour créer une nouvelle clé</h3>
+          <ol>
+            <li>Ouvre Google Cloud et crée ou sélectionne un projet.</li>
+            <li>Active l’API <strong>YouTube Data API v3</strong> pour ce projet.</li>
+            <li>Va dans <strong>APIs et services → Identifiants</strong>.</li>
+            <li>Clique sur <strong>Créer des identifiants → Clé API</strong>.</li>
+            <li>Copie la clé générée.</li>
+            <li>Dans l’idéal, restreins la clé à ton domaine de site pour éviter qu’elle soit utilisée ailleurs.</li>
+          </ol>
+          <div class="api-help-actions">
+            <a class="primary-link api-help-link" href="https://console.cloud.google.com/marketplace/product/google/youtube.googleapis.com" target="_blank" rel="noopener">Activer YouTube Data API v3</a>
+            <a class="ghost-link api-help-link" href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Créer une clé API</a>
+          </div>
+        </section>
+
+        <section class="api-help-section warning-box">
+          <h3>Conseil important</h3>
+          <p>Ne publie jamais ta clé API dans un message, un document ou un dépôt public. Pour un site web, utilise une clé restreinte par domaine HTTP.</p>
+        </section>
+      </div>
+    </div>
+  </div>
 
   <footer class="app-credit"><span>© 2026 — Application créée par Christophe Gros - <a href="https://www.faistonshow.fr" target="_blank" rel="noopener">Fais Ton Show</a></span></footer>
   <script type="module" src="./admin.js"></script>

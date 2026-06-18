@@ -80,6 +80,22 @@ $("#authForm")?.addEventListener("submit", async (event) => {
   openAdmin();
 });
 
+function openYoutubeApiHelp() {
+  const modal = $("#youtubeApiHelpModal");
+  if (!modal) return;
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+  $("#youtubeApiHelpCloseBtn")?.focus();
+}
+
+function closeYoutubeApiHelp() {
+  const modal = $("#youtubeApiHelpModal");
+  if (!modal) return;
+  modal.hidden = true;
+  document.body.classList.remove("modal-open");
+  $("#youtubeApiHelpBtn")?.focus();
+}
+
 function openAdmin() {
   $("#authPanel").hidden = true;
   $("#adminPanel").hidden = false;
@@ -121,6 +137,15 @@ function bindControls() {
     if (key) localStorage.setItem(apiKeyStorageKey, key);
     else localStorage.removeItem(apiKeyStorageKey);
     setStatus($("#youtubeStatus"), key ? "Clé API mémorisée sur cet appareil." : "Clé API supprimée de cet appareil.", "success");
+  });
+
+  $("#youtubeApiHelpBtn")?.addEventListener("click", openYoutubeApiHelp);
+  $("#youtubeApiHelpCloseBtn")?.addEventListener("click", closeYoutubeApiHelp);
+  $("#youtubeApiHelpModal")?.addEventListener("click", (event) => {
+    if (event.target?.id === "youtubeApiHelpModal") closeYoutubeApiHelp();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && !$("#youtubeApiHelpModal")?.hidden) closeYoutubeApiHelp();
   });
 
   $("#youtubeSearchForm").addEventListener("submit", async (event) => {
