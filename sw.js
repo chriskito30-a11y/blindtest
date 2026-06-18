@@ -1,4 +1,4 @@
-const CACHE_NAME = "blindtest-master-pwa-v11-adblock-popup-text";
+const CACHE_NAME = "blindtest-master-pwa-v12-reset-round-number";
 const APP_SHELL = [
   "./",
   "./index.html",

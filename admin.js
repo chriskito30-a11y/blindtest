@@ -216,6 +216,7 @@ function bindControls() {
   $("#closeRoundBtn").addEventListener("click", closeRound);
   $("#revealRoundBtn").addEventListener("click", () => revealRound("manual"));
   $("#resetRoundBtn").addEventListener("click", resetRound);
+  $("#resetRoundNumberBtn")?.addEventListener("click", resetRoundNumber);
   $("#resetScoresBtn").addEventListener("click", resetScores);
 
   $("#playerVolumeInput")?.addEventListener("input", () => {
@@ -1181,7 +1182,46 @@ async function revealRound(reason = "manual") {
 async function resetRound() {
   const next = { ...defaultRound(), roundNumber: Number(currentRound.roundNumber || 0) };
   await set(ref(db, roomPath(roomId, "currentRound")), next);
+  await set(ref(db, roomPath(roomId, "private/currentRoundSecret")), {
+    roundId: "",
+    roundNumber: next.roundNumber,
+    artist: "",
+    title: "",
+    answerMode: next.answerMode,
+    answerInputMode: next.answerInputMode,
+    normalizedArtist: "",
+    normalizedTitle: "",
+    createdAt: 0
+  });
   ytPlayer?.stopVideo?.();
+  setStatus($("#roundStatus"), "Manche réinitialisée. Le numéro de manche est conservé.", "success");
+}
+
+async function resetRoundNumber() {
+  const ok = window.confirm("Remettre le numéro de manche à 0 pour cette salle ? La prochaine manche lancée sera la manche 1.");
+  if (!ok) return;
+
+  const next = { ...defaultRound(), roundNumber: 0 };
+  await set(ref(db, roomPath(roomId, "currentRound")), next);
+  await set(ref(db, roomPath(roomId, "private/currentRoundSecret")), {
+    roundId: "",
+    roundNumber: 0,
+    artist: "",
+    title: "",
+    answerMode: next.answerMode,
+    answerInputMode: next.answerInputMode,
+    normalizedArtist: "",
+    normalizedTitle: "",
+    createdAt: 0
+  });
+  autoPausedRoundId = "";
+  autoFinishRoundId = "";
+  autoProcessingAnswerId = "";
+  autoAdvanceRoundId = "";
+  activePlaylistRoundId = "";
+  activePlaylistRoundIndex = -1;
+  ytPlayer?.stopVideo?.();
+  setStatus($("#roundStatus"), "Numéro de manche remis à 0. La prochaine manche sera la manche 1.", "success");
 }
 
 async function resetScores() {
