@@ -196,15 +196,26 @@ button:disabled { opacity: .48; cursor: not-allowed; transform: none; }
 .inline-field input { width: 76px; padding: 10px 12px; }
 .playlist-box { margin-top: 18px; border-top: 1px solid var(--line); padding-top: 18px; display: grid; gap: 12px; }
 .playlist-list { display: grid; gap: 10px; }
+.playlist-summary { border: 1px dashed var(--line); border-radius: 16px; padding: 10px 12px; display: grid; gap: 3px; color: var(--muted); }
+.playlist-summary strong { color: var(--text); }
 .playlist-row { border: 1px solid var(--line); border-radius: 18px; background: rgba(0,0,0,.18); padding: 12px; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+.playlist-row.editable { display: grid; align-items: stretch; }
 .playlist-row.active { outline: 2px solid rgba(255,255,255,.35); }
+.playlist-row-title { display: grid; gap: 4px; }
 .playlist-row div:first-child { display: grid; gap: 4px; }
 .playlist-row small { color: var(--muted); }
+.playlist-edit-grid { display: grid; grid-template-columns: repeat(7, minmax(90px, 1fr)); gap: 10px; }
+.playlist-edit-field { display: grid; gap: 5px; }
+.playlist-edit-field span { color: var(--muted); font-size: .78rem; }
+.playlist-edit-field input,
+.playlist-edit-field select { width: 100%; min-width: 0; padding: 9px 10px; border-radius: 12px; border: 1px solid var(--line); background: rgba(0,0,0,.22); color: var(--text); }
+.playlist-actions { justify-content: flex-start; flex-wrap: wrap; }
 .buzzer-box { display: grid; gap: 12px; margin-top: 18px; justify-items: center; }
 .buzzer-btn { width: min(78vw, 340px); aspect-ratio: 1; border-radius: 999px; border: 10px solid rgba(255,255,255,.22); background: radial-gradient(circle at 35% 30%, #ff8fab, #ff1744 45%, #8b001c 100%); color: white; font-size: clamp(2rem, 8vw, 4.2rem); font-weight: 1000; letter-spacing: .06em; box-shadow: 0 20px 60px rgba(0,0,0,.45), inset 0 12px 24px rgba(255,255,255,.22); cursor: pointer; }
 .buzzer-btn:disabled { opacity: .45; cursor: not-allowed; filter: grayscale(.6); }
 
 @media (max-width: 760px) {
   .playlist-row { display: grid; }
+  .playlist-edit-grid { grid-template-columns: 1fr 1fr; }
   .inline-field { width: 100%; justify-content: space-between; }
 }

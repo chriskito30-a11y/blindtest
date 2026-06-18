@@ -346,6 +346,7 @@ function renderPreparedTracks() {
   const list = $("#playlistList");
   if (!list) return;
   list.innerHTML = "";
+
   if (!preparedTracks.length) {
     const empty = document.createElement("p");
     empty.className = "muted";
@@ -353,22 +354,79 @@ function renderPreparedTracks() {
     list.appendChild(empty);
     return;
   }
+
+  const header = document.createElement("div");
+  header.className = "playlist-summary";
+  header.innerHTML = `<strong>${preparedTracks.length} morceau${preparedTracks.length > 1 ? "x" : ""} préparé${preparedTracks.length > 1 ? "s" : ""}</strong><span>Tu peux modifier directement les champs ci-dessous, puis cliquer sur “Enregistrer”.</span>`;
+  list.appendChild(header);
+
   preparedTracks.forEach((track, index) => {
     const row = document.createElement("article");
-    row.className = "playlist-row";
+    row.className = "playlist-row editable";
     if (index === currentPreparedIndex) row.classList.add("active");
-    const info = document.createElement("div");
+
+    const titleLine = document.createElement("div");
+    titleLine.className = "playlist-row-title";
     const title = document.createElement("strong");
-    title.textContent = `${index + 1}. ${track.artist} — ${track.title}`;
+    title.textContent = `${index + 1}. ${track.artist || "Artiste ?"} — ${track.title || "Titre ?"}`;
     const meta = document.createElement("small");
-    meta.textContent = `début ${track.start || 0}s · durée ${track.durationSec || config.durationSec}s · volume ${clampVolume(track.volume ?? getDefaultPlayerVolume(), getDefaultPlayerVolume())}% · ${track.answerInputMode === "buzzer" ? "buzzer" : "écrit"}`;
-    info.append(title, meta);
+    meta.textContent = `Vidéo : ${track.youtubeTitle || track.videoId} · ${track.answerInputMode === "buzzer" ? "buzzer oral" : "réponse écrite"}`;
+    titleLine.append(title, meta);
+
+    const form = document.createElement("div");
+    form.className = "playlist-edit-grid";
+
+    const artistInput = makePlaylistInput("Artiste", track.artist || "");
+    const titleInput = makePlaylistInput("Titre", track.title || "");
+    const startInput = makePlaylistInput("Début s", Number(track.start || 0), "number", { min: 0, step: 1 });
+    const durationInput = makePlaylistInput("Durée s", clampDuration(track.durationSec || config.durationSec), "number", { min: 5, max: 180, step: 1 });
+    const volumeInput = makePlaylistInput("Volume %", clampVolume(track.volume ?? getDefaultPlayerVolume(), getDefaultPlayerVolume()), "number", { min: 0, max: 100, step: 1 });
+
+    const answerModeWrap = makePlaylistSelect("Réponse", track.answerMode || config.answerMode || "artist_title", [
+      ["artist_title", "Artiste + titre"],
+      ["title", "Titre"],
+      ["artist", "Artiste"]
+    ]);
+    const inputModeWrap = makePlaylistSelect("Mode joueur", track.answerInputMode || config.answerInputMode || "text", [
+      ["text", "Écrit"],
+      ["buzzer", "Buzzer"]
+    ]);
+
+    form.append(artistInput.wrap, titleInput.wrap, startInput.wrap, durationInput.wrap, volumeInput.wrap, answerModeWrap.wrap, inputModeWrap.wrap);
+
     const actions = document.createElement("div");
-    actions.className = "tiny-actions";
+    actions.className = "tiny-actions playlist-actions";
+
+    const saveBtn = document.createElement("button");
+    saveBtn.type = "button";
+    saveBtn.className = "secondary-btn";
+    saveBtn.textContent = "Enregistrer";
+    saveBtn.addEventListener("click", () => {
+      const updated = {
+        ...track,
+        artist: artistInput.input.value.trim(),
+        title: titleInput.input.value.trim(),
+        start: Math.max(0, Number.parseInt(startInput.input.value, 10) || 0),
+        durationSec: clampDuration(durationInput.input.value || config.durationSec),
+        volume: clampVolume(volumeInput.input.value, getDefaultPlayerVolume()),
+        answerMode: answerModeWrap.select.value || "artist_title",
+        answerInputMode: inputModeWrap.select.value || "text"
+      };
+      if (!updated.artist || !updated.title) {
+        setStatus($("#playlistStatus"), "Artiste et titre sont obligatoires pour enregistrer ce morceau.", "error");
+        return;
+      }
+      preparedTracks[index] = updated;
+      savePreparedTracks();
+      if (currentPreparedIndex === index) loadPreparedTrack(index, true);
+      setStatus($("#playlistStatus"), `Morceau ${index + 1} mis à jour : ${updated.artist} — ${updated.title}.`, "success");
+    });
+
     const loadBtn = document.createElement("button");
     loadBtn.type = "button";
     loadBtn.textContent = "Charger";
     loadBtn.addEventListener("click", () => loadPreparedTrack(index, true));
+
     const startBtn = document.createElement("button");
     startBtn.type = "button";
     startBtn.textContent = "Lancer";
@@ -376,18 +434,64 @@ function renderPreparedTracks() {
       await loadPreparedTrack(index, true);
       await startRound({ playlistIndex: index, playlistTrackId: track.id });
     });
+
+    const duplicateBtn = document.createElement("button");
+    duplicateBtn.type = "button";
+    duplicateBtn.textContent = "Dupliquer";
+    duplicateBtn.addEventListener("click", () => {
+      const copy = { ...preparedTracks[index], id: `track-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` };
+      preparedTracks.splice(index + 1, 0, copy);
+      currentPreparedIndex = index + 1;
+      savePreparedTracks();
+      setStatus($("#playlistStatus"), "Morceau dupliqué.", "success");
+    });
+
     const removeBtn = document.createElement("button");
     removeBtn.type = "button";
+    removeBtn.className = "danger-btn";
     removeBtn.textContent = "Supprimer";
     removeBtn.addEventListener("click", () => {
       preparedTracks.splice(index, 1);
-      if (currentPreparedIndex >= preparedTracks.length) currentPreparedIndex = preparedTracks.length - 1;
+      if (currentPreparedIndex === index) currentPreparedIndex = -1;
+      else if (currentPreparedIndex > index) currentPreparedIndex -= 1;
       savePreparedTracks();
+      setStatus($("#playlistStatus"), "Morceau supprimé de la liste.", "success");
     });
-    actions.append(loadBtn, startBtn, removeBtn);
-    row.append(info, actions);
+
+    actions.append(saveBtn, loadBtn, startBtn, duplicateBtn, removeBtn);
+    row.append(titleLine, form, actions);
     list.appendChild(row);
   });
+}
+
+function makePlaylistInput(labelText, value, type = "text", attrs = {}) {
+  const wrap = document.createElement("label");
+  wrap.className = "playlist-edit-field";
+  const span = document.createElement("span");
+  span.textContent = labelText;
+  const input = document.createElement("input");
+  input.type = type;
+  input.value = value;
+  Object.entries(attrs).forEach(([key, attrValue]) => input.setAttribute(key, attrValue));
+  wrap.append(span, input);
+  return { wrap, input };
+}
+
+function makePlaylistSelect(labelText, value, options) {
+  const wrap = document.createElement("label");
+  wrap.className = "playlist-edit-field";
+  const span = document.createElement("span");
+  span.textContent = labelText;
+  const select = document.createElement("select");
+  options.forEach(([optionValue, optionLabel]) => {
+    const option = document.createElement("option");
+    option.value = optionValue;
+    option.textContent = optionLabel;
+    if (optionValue === value) option.selected = true;
+    select.appendChild(option);
+  });
+  wrap.append(span, select);
+  return { wrap, select };
 }
 
 
