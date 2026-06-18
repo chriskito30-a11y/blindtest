@@ -367,16 +367,27 @@ function restorePlaylistCursor() {
 }
 
 function getPlaylistBaseIndex() {
-  // Pour lancer le morceau prêt, on privilégie toujours le curseur local.
-  // L'ancien currentRound.playlistIndex peut encore contenir l'index de la manche terminée
-  // tant que Firebase n'a pas été rafraîchi, ce qui relançait le même morceau.
-  if (Number.isFinite(activePlaylistRoundIndex) && activePlaylistRoundIndex >= 0) return activePlaylistRoundIndex;
+  const roundIndex = Number(currentRound?.playlistIndex);
+  const activeIndex = Number(activePlaylistRoundIndex);
+  const activeRoundStillPlaying = Boolean(
+    currentRound?.status === "playing" &&
+    currentRound?.active !== false &&
+    activePlaylistRoundId &&
+    currentRound?.roundId === activePlaylistRoundId
+  );
+
+  // L'index de la manche active ne doit être prioritaire que pendant la lecture réelle.
+  // Dès que la manche est fermée/révélée/terminée, le curseur local devient la source fiable :
+  // il pointe vers le morceau préchargé suivant. Sinon, l'ancien index relance le même morceau.
+  if (activeRoundStillPlaying && Number.isFinite(activeIndex) && activeIndex >= 0 && preparedTracks[activeIndex]) {
+    return activeIndex;
+  }
+
   const cursor = Number(currentPreparedIndex);
   if (Number.isFinite(cursor) && cursor >= 0 && preparedTracks[cursor]) return cursor;
   const restored = restorePlaylistCursor();
   if (Number.isFinite(restored) && restored >= 0 && preparedTracks[restored]) return restored;
-  const roundIndex = Number(currentRound?.playlistIndex);
-  if (currentRound?.status === "playing" && Number.isFinite(roundIndex) && roundIndex >= 0) return roundIndex;
+  if (currentRound?.status === "playing" && Number.isFinite(roundIndex) && roundIndex >= 0 && preparedTracks[roundIndex]) return roundIndex;
   return -1;
 }
 

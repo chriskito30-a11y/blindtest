@@ -1,4 +1,4 @@
-const CACHE_NAME = "blindtest-master-pwa-v5";
+const CACHE_NAME = "blindtest-master-pwa-v6-playlist-cursor";
 const APP_SHELL = [
   "./",
   "./index.html",
