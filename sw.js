@@ -1,4 +1,4 @@
-const CACHE_NAME = "blindtest-master-pwa-v10-playlist-edit-focus-fix";
+const CACHE_NAME = "blindtest-master-pwa-v11-adblock-popup-text";
 const APP_SHELL = [
   "./",
   "./index.html",
