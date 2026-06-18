@@ -189,7 +189,7 @@ function bindControls() {
   $("#pauseBtn").addEventListener("click", () => ytPlayer?.pauseVideo?.());
   $("#stopBtn").addEventListener("click", () => ytPlayer?.stopVideo?.());
 
-  $("#startRoundBtn").addEventListener("click", startRound);
+  $("#startRoundBtn").addEventListener("click", startRoundFromMainButton);
   $("#closeRoundBtn").addEventListener("click", closeRound);
   $("#revealRoundBtn").addEventListener("click", () => revealRound("manual"));
   $("#resetRoundBtn").addEventListener("click", resetRound);
@@ -382,9 +382,13 @@ async function startPreparedPlaylist() {
     setStatus($("#playlistStatus"), "Ajoute au moins un morceau dans la liste.", "error");
     return;
   }
-  const index = currentPreparedIndex >= 0 ? currentPreparedIndex : 0;
-  await loadPreparedTrack(index, true);
-  await startCurrentPreparedTrack();
+  currentPreparedIndex = 0;
+  await loadPreparedTrack(0, true);
+  setStatus(
+    $("#playlistStatus"),
+    `Liste prête : morceau 1/${preparedTracks.length} préchargé (${preparedTracks[0].artist} — ${preparedTracks[0].title}). Clique sur “Lancer la manche + YouTube” quand l’arbitre veut jouer.`,
+    "success"
+  );
 }
 
 async function startCurrentPreparedTrack() {
@@ -747,6 +751,19 @@ function cueSelectedVideo() {
   const start = Number.parseInt($("#youtubeStartInput").value, 10) || 0;
   ytPlayer.cueVideoById({ videoId: selectedVideo.videoId, startSeconds: start });
   applyPlayerVolume();
+}
+
+async function startRoundFromMainButton() {
+  const track = preparedTracks[currentPreparedIndex];
+
+  // Quand une liste est en cours/préchargée, le gros bouton arbitre doit lancer
+  // le morceau courant de la liste, pas relire un ancien formulaire sans index playlist.
+  if (track?.videoId && selectedVideo.videoId === track.videoId) {
+    await startCurrentPreparedTrack();
+    return;
+  }
+
+  await startRound();
 }
 
 async function startRound(options = {}) {
