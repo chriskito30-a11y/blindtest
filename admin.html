@@ -135,6 +135,7 @@
               <button id="closeRoundBtn" class="secondary-btn" type="button">Fermer les réponses</button>
               <button id="revealRoundBtn" class="ghost-btn" type="button">Révéler maintenant</button>
               <button id="resetRoundBtn" class="danger-btn" type="button">Réinitialiser manche</button>
+              <button id="resetRoundNumberBtn" class="danger-btn" type="button">Remettre n° manche à 0</button>
             </div>
           </div>
           <p id="roundStatus" class="status-text"></p>
@@ -143,7 +144,10 @@
         <section class="panel-card scoreboard-card">
           <h2>Classement équipes</h2>
           <div id="scoreboardList" class="scoreboard-list"></div>
-          <button id="resetScoresBtn" class="danger-btn" type="button">Remettre tous les scores à 0</button>
+          <div class="actions-row">
+            <button id="resetScoresBtn" class="danger-btn" type="button">Remettre tous les scores à 0</button>
+            <button id="resetRoundNumberBtnScoreboard" class="danger-btn" type="button">Remettre n° manche à 0</button>
+          </div>
         </section>
 
         <section class="panel-card answers-card">

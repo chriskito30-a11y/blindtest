@@ -217,6 +217,7 @@ function bindControls() {
   $("#revealRoundBtn").addEventListener("click", () => revealRound("manual"));
   $("#resetRoundBtn").addEventListener("click", resetRound);
   $("#resetRoundNumberBtn")?.addEventListener("click", resetRoundNumber);
+  $("#resetRoundNumberBtnScoreboard")?.addEventListener("click", resetRoundNumber);
   $("#resetScoresBtn").addEventListener("click", resetScores);
 
   $("#playerVolumeInput")?.addEventListener("input", () => {
