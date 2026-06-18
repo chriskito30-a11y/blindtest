@@ -1,4 +1,4 @@
-const CACHE_NAME = "blindtest-master-pwa-v7-youtube-ready";
+const CACHE_NAME = "blindtest-master-pwa-v8-youtube-force-play";
 const APP_SHELL = [
   "./",
   "./index.html",

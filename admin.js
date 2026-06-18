@@ -287,11 +287,45 @@ function refreshPlayerAudio(volume = null) {
   return value;
 }
 
-function playYoutubeWithAudio() {
-  if (!ytPlayer) return;
+function configureYoutubeIframe() {
+  const iframe = ytPlayer?.getIframe?.() || document.querySelector("#youtubePlayer iframe");
+  if (!iframe) return null;
+  iframe.setAttribute("allow", "autoplay; encrypted-media; picture-in-picture; fullscreen");
+  iframe.setAttribute("allowfullscreen", "true");
+  return iframe;
+}
+
+function forceYoutubeIframeAutoplay(videoId, startSeconds = 0) {
+  const iframe = configureYoutubeIframe();
+  if (!iframe || !videoId) return false;
+  const origin = encodeURIComponent(window.location.origin);
+  const start = Math.max(0, Number.parseInt(startSeconds, 10) || 0);
+  iframe.src = `https://www.youtube.com/embed/${encodeURIComponent(videoId)}?autoplay=1&start=${start}&playsinline=1&enablejsapi=1&origin=${origin}&rel=0&modestbranding=1`;
+  return true;
+}
+
+function playYoutubeWithAudio(videoId = selectedVideo.videoId, startSeconds = 0) {
+  if (!ytPlayer) return false;
+  configureYoutubeIframe();
   refreshPlayerAudio();
-  ytPlayer.playVideo?.();
+  try { ytPlayer.playVideo?.(); } catch {}
   window.setTimeout(() => refreshPlayerAudio(), 250);
+
+  // Si l'API iframe ne démarre pas vraiment la vidéo, on force le src officiel avec autoplay.
+  // Cela garde le clic arbitre comme déclencheur utilisateur et évite le cas où load/play est ignoré.
+  window.setTimeout(() => {
+    let state = null;
+    try { state = ytPlayer.getPlayerState?.(); } catch {}
+    // YT.PlayerState.PLAYING = 1 ; BUFFERING = 3. Les autres états indiquent que rien ne part.
+    if (state !== 1 && state !== 3 && videoId) {
+      forceYoutubeIframeAutoplay(videoId, startSeconds);
+      window.setTimeout(() => {
+        try { ytPlayer.playVideo?.(); } catch {}
+        refreshPlayerAudio();
+      }, 350);
+    }
+  }, 650);
+  return true;
 }
 
 function adjustPlayerVolume(delta) {
@@ -850,7 +884,8 @@ async function ensurePlayer(videoId = "") {
       playsinline: 1,
       rel: 0,
       modestbranding: 1,
-      enablejsapi: 1
+      enablejsapi: 1,
+      origin: window.location.origin
     },
     events: {
       onReady: () => {
@@ -861,6 +896,7 @@ async function ensurePlayer(videoId = "") {
       }
     }
   });
+  configureYoutubeIframe();
 
   await ytPlayerReadyPromise;
   return ytPlayer;
@@ -895,7 +931,12 @@ function autoFillExpectedFromVideo(title, channel = "") {
 function cueSelectedVideo() {
   if (!selectedVideo.videoId || !ytPlayer || !playerReady) return;
   const start = Number.parseInt($("#youtubeStartInput").value, 10) || 0;
-  ytPlayer.cueVideoById({ videoId: selectedVideo.videoId, startSeconds: start });
+  configureYoutubeIframe();
+  try {
+    ytPlayer.cueVideoById({ videoId: selectedVideo.videoId, startSeconds: start });
+  } catch {
+    try { ytPlayer.cueVideoById(selectedVideo.videoId, start); } catch {}
+  }
   refreshPlayerAudio();
 }
 
@@ -975,8 +1016,12 @@ async function startRound(options = {}) {
   try {
     if (selectedVideo.videoId) {
       await ensurePlayer(selectedVideo.videoId);
-      ytPlayer.loadVideoById({ videoId: selectedVideo.videoId, startSeconds: youtubeStartAt });
-      playYoutubeWithAudio();
+      try {
+        ytPlayer.loadVideoById({ videoId: selectedVideo.videoId, startSeconds: youtubeStartAt });
+      } catch {
+        try { ytPlayer.loadVideoById(selectedVideo.videoId, youtubeStartAt); } catch {}
+      }
+      playYoutubeWithAudio(selectedVideo.videoId, youtubeStartAt);
     }
       autoPausedRoundId = "";
     autoFinishRoundId = "";
