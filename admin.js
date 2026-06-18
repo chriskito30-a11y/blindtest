@@ -269,7 +269,26 @@ function getPlayerVolume() {
 function applyPlayerVolume(volume = null) {
   const value = volume === null ? getPlayerVolume() : setPlayerVolumeInput(volume);
   if (ytPlayer?.setVolume) ytPlayer.setVolume(value);
+  // YouTube peut parfois rester en muet après un cue/load ou après une prélecture.
+  // On force donc explicitement la sortie du mode muet à chaque application du volume.
+  if (ytPlayer?.unMute) ytPlayer.unMute();
   return value;
+}
+
+function refreshPlayerAudio(volume = null) {
+  const value = applyPlayerVolume(volume);
+  // Certains changements YouTube réinitialisent le volume quelques instants après loadVideoById/cueVideoById.
+  // On le réapplique légèrement après pour sécuriser le morceau suivant de la playlist.
+  window.setTimeout(() => applyPlayerVolume(value), 250);
+  window.setTimeout(() => applyPlayerVolume(value), 900);
+  return value;
+}
+
+function playYoutubeWithAudio() {
+  if (!ytPlayer) return;
+  refreshPlayerAudio();
+  ytPlayer.playVideo?.();
+  window.setTimeout(() => refreshPlayerAudio(), 250);
 }
 
 function adjustPlayerVolume(delta) {
@@ -798,7 +817,7 @@ function cueSelectedVideo() {
   if (!selectedVideo.videoId || !ytPlayer || !playerReady) return;
   const start = Number.parseInt($("#youtubeStartInput").value, 10) || 0;
   ytPlayer.cueVideoById({ videoId: selectedVideo.videoId, startSeconds: start });
-  applyPlayerVolume();
+  refreshPlayerAudio();
 }
 
 async function startRoundFromMainButton() {
@@ -877,8 +896,9 @@ async function startRound(options = {}) {
       await ensurePlayer(selectedVideo.videoId);
       if (playerReady) {
         ytPlayer.loadVideoById({ videoId: selectedVideo.videoId, startSeconds: youtubeStartAt });
-        applyPlayerVolume();
+        refreshPlayerAudio();
         ytPlayer.playVideo();
+        window.setTimeout(() => refreshPlayerAudio(), 300);
       }
     }
       autoPausedRoundId = "";
