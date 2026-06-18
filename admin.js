@@ -47,6 +47,9 @@ let autoFinishRoundId = "";
 let autoProcessingAnswerId = "";
 let preparedTracks = [];
 let currentPreparedIndex = -1;
+let playlistModeActive = false;
+let activePlaylistRoundId = "";
+let activePlaylistRoundIndex = -1;
 let autoAdvanceRoundId = "";
 
 const apiKeyStorageKey = "blindMasterYoutubeApiKey";
@@ -346,6 +349,9 @@ function addPreparedTrackFromCurrent() {
 function clearPreparedTracks() {
   preparedTracks = [];
   currentPreparedIndex = -1;
+  playlistModeActive = false;
+  activePlaylistRoundId = "";
+  activePlaylistRoundIndex = -1;
   savePreparedTracks();
   setStatus($("#playlistStatus"), "Liste vidée.", "success");
 }
@@ -382,6 +388,10 @@ async function startPreparedPlaylist() {
     setStatus($("#playlistStatus"), "Ajoute au moins un morceau dans la liste.", "error");
     return;
   }
+  playlistModeActive = true;
+  activePlaylistRoundId = "";
+  activePlaylistRoundIndex = -1;
+  autoAdvanceRoundId = "";
   currentPreparedIndex = 0;
   await loadPreparedTrack(0, true);
   setStatus(
@@ -397,13 +407,20 @@ async function startCurrentPreparedTrack() {
     return false;
   }
   const index = currentPreparedIndex >= 0 ? currentPreparedIndex : 0;
-  if (!preparedTracks[index]) {
+  const track = preparedTracks[index];
+  if (!track) {
     setStatus($("#playlistStatus"), "Aucun morceau prêt à lancer.", "error");
     return false;
   }
+
+  playlistModeActive = true;
   await loadPreparedTrack(index, true);
-  await startRound({ playlistIndex: index, playlistTrackId: preparedTracks[index]?.id || "" });
-  setStatus($("#playlistStatus"), `Morceau ${index + 1}/${preparedTracks.length} lancé : ${preparedTracks[index].artist} — ${preparedTracks[index].title}.`, "success");
+  const payload = await startRound({ playlistIndex: index, playlistTrackId: track.id || "" });
+  if (!payload) return false;
+
+  activePlaylistRoundId = payload.roundId;
+  activePlaylistRoundIndex = index;
+  setStatus($("#playlistStatus"), `Morceau ${index + 1}/${preparedTracks.length} lancé : ${track.artist} — ${track.title}.`, "success");
   return true;
 }
 
@@ -422,14 +439,29 @@ async function prepareNextPlaylistTrack(fromIndex = -1, options = {}) {
   return nextIndex;
 }
 
-async function handlePlaylistAfterRoundEnd(fromIndex) {
-  if (!currentRound?.roundId || autoAdvanceRoundId === currentRound.roundId) return;
-  autoAdvanceRoundId = currentRound.roundId;
-  const nextIndex = await prepareNextPlaylistTrack(fromIndex);
-  if (nextIndex === false) return;
+async function handlePlaylistAfterRoundEnd(fromIndex, roundId = "") {
+  const endedRoundId = roundId || currentRound?.roundId || activePlaylistRoundId || "";
+  if (!playlistModeActive || !endedRoundId || autoAdvanceRoundId === endedRoundId) return;
+  autoAdvanceRoundId = endedRoundId;
+
+  const baseIndex = Number.isFinite(Number(fromIndex)) && Number(fromIndex) >= 0
+    ? Number(fromIndex)
+    : activePlaylistRoundIndex;
+
+  const nextIndex = await prepareNextPlaylistTrack(baseIndex);
+  if (nextIndex === false) {
+    playlistModeActive = false;
+    activePlaylistRoundId = "";
+    activePlaylistRoundIndex = -1;
+    return;
+  }
+
+  activePlaylistRoundId = "";
+  activePlaylistRoundIndex = -1;
   if (!isPlaylistAutoPlayEnabled()) return;
+
   await new Promise((resolve) => window.setTimeout(resolve, 1200));
-  if (!preparedTracks[nextIndex] || currentPreparedIndex !== nextIndex) return;
+  if (!preparedTracks[nextIndex] || currentPreparedIndex !== nextIndex || !playlistModeActive) return;
   await startCurrentPreparedTrack();
 }
 
@@ -756,13 +788,22 @@ function cueSelectedVideo() {
 async function startRoundFromMainButton() {
   const track = preparedTracks[currentPreparedIndex];
 
-  // Quand une liste est en cours/préchargée, le gros bouton arbitre doit lancer
-  // le morceau courant de la liste, pas relire un ancien formulaire sans index playlist.
+  // Si une liste a été lancée, le gros bouton joue toujours le morceau courant
+  // du curseur de playlist, même si les champs du formulaire contiennent autre chose.
+  if (playlistModeActive && track?.videoId) {
+    await startCurrentPreparedTrack();
+    return;
+  }
+
+  // Sécurité : si un morceau de la liste est explicitement chargé, on le lance aussi
+  // comme morceau de playlist pour garder l'index et passer au suivant ensuite.
   if (track?.videoId && selectedVideo.videoId === track.videoId) {
     await startCurrentPreparedTrack();
     return;
   }
 
+  activePlaylistRoundId = "";
+  activePlaylistRoundIndex = -1;
   await startRound();
 }
 
@@ -843,8 +884,10 @@ async function startRound(options = {}) {
       }
     });
     setStatus($("#roundStatus"), "Manche lancée.", "success");
+    return payload;
   } catch (error) {
     setStatus($("#roundStatus"), error.message || "Impossible de lancer la manche.", "error");
+    return false;
   }
 }
 
@@ -856,7 +899,10 @@ async function closeRound() {
 async function revealRound(reason = "manual") {
   const artist = secretRound.artist || $("#artistInput").value.trim();
   const title = secretRound.title || $("#titleInput").value.trim();
-  const playlistIndex = currentRound.playlistIndex;
+  const roundId = currentRound.roundId || activePlaylistRoundId;
+  const playlistIndex = Number.isFinite(Number(currentRound.playlistIndex)) && Number(currentRound.playlistIndex) >= 0
+    ? Number(currentRound.playlistIndex)
+    : activePlaylistRoundIndex;
   await update(ref(db, roomPath(roomId, "currentRound")), {
     active: false,
     status: "revealed",
@@ -867,7 +913,7 @@ async function revealRound(reason = "manual") {
     endReason: reason
   });
   ytPlayer?.pauseVideo?.();
-  if (playlistIndex >= 0) handlePlaylistAfterRoundEnd(playlistIndex).catch((error) => {
+  if (playlistIndex >= 0) handlePlaylistAfterRoundEnd(playlistIndex, roundId).catch((error) => {
     setStatus($("#playlistStatus"), error.message || "Impossible de préparer le morceau suivant.", "error");
   });
 }
@@ -972,7 +1018,10 @@ async function awardAnswerParts(answerId, parts, options = {}) {
   const labels = cleanParts.map(partLabel).join(" + ");
   if (complete) {
     ytPlayer?.pauseVideo?.();
-    if (currentRound.playlistIndex >= 0) handlePlaylistAfterRoundEnd(currentRound.playlistIndex).catch((error) => {
+    const playlistIndex = Number.isFinite(Number(currentRound.playlistIndex)) && Number(currentRound.playlistIndex) >= 0
+      ? Number(currentRound.playlistIndex)
+      : activePlaylistRoundIndex;
+    if (playlistIndex >= 0) handlePlaylistAfterRoundEnd(playlistIndex, currentRound.roundId || activePlaylistRoundId).catch((error) => {
       setStatus($("#playlistStatus"), error.message || "Impossible de préparer le morceau suivant.", "error");
     });
     setStatus($("#roundStatus"), `${labels} trouvé${cleanParts.length > 1 ? "s" : ""} : manche terminée et réponse révélée.`, "success");
