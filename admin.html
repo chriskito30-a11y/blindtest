@@ -66,6 +66,7 @@
             <input id="youtubeQueryInput" placeholder="ex : Goldman je te donne" />
             <button class="secondary-btn" type="submit">Rechercher</button>
             <button id="openYoutubeBtn" class="ghost-btn" type="button">Ouvrir YouTube</button>
+            <button id="youtubeAdsHelpBtn" class="ghost-btn" type="button">Éviter les pubs</button>
           </form>
           <p id="youtubeStatus" class="status-text"></p>
           <div id="youtubeResults" class="youtube-results"></div>
@@ -98,8 +99,10 @@
             <div class="actions-row">
               <button id="addPreparedTrackBtn" class="secondary-btn" type="button">Ajouter le morceau préparé</button>
               <button id="startPlaylistBtn" class="primary-btn" type="button">Lancer la liste</button>
+              <button id="startCurrentTrackBtn" class="secondary-btn" type="button">Lancer le morceau prêt</button>
               <button id="loadNextTrackBtn" class="ghost-btn" type="button">Précharger suivant</button>
               <button id="clearPlaylistBtn" class="danger-btn" type="button">Vider la liste</button>
+              <label class="inline-field playlist-autoplay-toggle"><input id="playlistAutoPlayInput" type="checkbox" /> <span>Lecture automatique de toute la liste</span></label>
             </div>
             <p id="playlistStatus" class="status-text"></p>
             <div id="playlistList" class="playlist-list"></div>
@@ -196,6 +199,46 @@
         <section class="api-help-section warning-box">
           <h3>Conseil important</h3>
           <p>Ne publie jamais ta clé API dans un message, un document ou un dépôt public. Pour un site web, utilise une clé restreinte par domaine HTTP.</p>
+        </section>
+      </div>
+    </div>
+  </div>
+
+
+  <div id="youtubeAdsHelpModal" class="modal-overlay" hidden>
+    <div class="modal-card api-help-card" role="dialog" aria-modal="true" aria-labelledby="youtubeAdsHelpTitle">
+      <div class="modal-head">
+        <div>
+          <h2 id="youtubeAdsHelpTitle">Éviter les pubs pendant un blindtest</h2>
+          <p class="muted">L’application ne peut pas intégrer un bloqueur de pubs YouTube dans le lecteur intégré. Voici les solutions propres et fiables.</p>
+        </div>
+        <button id="youtubeAdsHelpCloseBtn" class="ghost-btn modal-close" type="button" aria-label="Fermer l’aide anti-pub">×</button>
+      </div>
+
+      <div class="api-help-content">
+        <section class="api-help-section warning-box">
+          <h3>Pourquoi je ne peux pas ajouter un adblock intégré ?</h3>
+          <p>Les vidéos sont lues dans le lecteur officiel YouTube. L’application peut contrôler la lecture, le timecode et le volume, mais elle ne peut pas supprimer, masquer ou contourner les publicités YouTube sans risquer de casser le lecteur ou d’aller contre les règles YouTube.</p>
+        </section>
+
+        <section class="api-help-section">
+          <h3>Solution la plus fiable pour une soirée</h3>
+          <ol>
+            <li>Connecte le navigateur utilisé par l’arbitre à un compte <strong>YouTube Premium</strong>.</li>
+            <li>Recharge l’application Blindtest.</li>
+            <li>Lance quelques morceaux préparés avant l’arrivée des joueurs pour vérifier que tout démarre proprement.</li>
+          </ol>
+          <a class="primary-link api-help-link" href="https://www.youtube.com/premium" target="_blank" rel="noopener">Ouvrir YouTube Premium</a>
+        </section>
+
+        <section class="api-help-section">
+          <h3>Alternative si tu veux zéro pub garantie</h3>
+          <p>Pour une version vraiment sans pub, il faut prévoir plus tard un mode avec des fichiers audio hébergés par toi-même, ou une source musicale sous licence adaptée. Dans ce cas, l’application pourra contrôler directement l’audio, le volume et les extraits sans dépendre des publicités YouTube.</p>
+        </section>
+
+        <section class="api-help-section">
+          <h3>À ne pas confondre</h3>
+          <p>Une clé API YouTube sert seulement à rechercher les vidéos. Elle ne supprime pas les publicités. Le domaine <code>youtube-nocookie.com</code> améliore la confidentialité de l’intégration, mais ne garantit pas un lecteur sans publicité.</p>
         </section>
       </div>
     </div>

@@ -47,9 +47,11 @@ let autoFinishRoundId = "";
 let autoProcessingAnswerId = "";
 let preparedTracks = [];
 let currentPreparedIndex = -1;
+let autoAdvanceRoundId = "";
 
 const apiKeyStorageKey = "blindMasterYoutubeApiKey";
 const playlistStorageKey = `blindMasterPreparedTracks:${roomId}`;
+const playlistAutoPlayStorageKey = `blindMasterPlaylistAutoPlay:${roomId}`;
 
 if (!roomId) {
   $("#missingRoom").hidden = false;
@@ -104,6 +106,9 @@ function openAdmin() {
   $("#voteLink").href = publicUrl("vote.html", roomId);
   $("#youtubeApiKeyInput").value = localStorage.getItem(apiKeyStorageKey) || "";
   loadPreparedTracks();
+  if ($("#playlistAutoPlayInput")) {
+    $("#playlistAutoPlayInput").checked = localStorage.getItem(playlistAutoPlayStorageKey) === "1";
+  }
 
   bindControls();
 
@@ -144,8 +149,14 @@ function bindControls() {
   $("#youtubeApiHelpModal")?.addEventListener("click", (event) => {
     if (event.target?.id === "youtubeApiHelpModal") closeYoutubeApiHelp();
   });
+  $("#youtubeAdsHelpBtn")?.addEventListener("click", openYoutubeAdsHelp);
+  $("#youtubeAdsHelpCloseBtn")?.addEventListener("click", closeYoutubeAdsHelp);
+  $("#youtubeAdsHelpModal")?.addEventListener("click", (event) => {
+    if (event.target?.id === "youtubeAdsHelpModal") closeYoutubeAdsHelp();
+  });
   document.addEventListener("keydown", (event) => {
     if (event.key === "Escape" && !$("#youtubeApiHelpModal")?.hidden) closeYoutubeApiHelp();
+    if (event.key === "Escape" && !$("#youtubeAdsHelpModal")?.hidden) closeYoutubeAdsHelp();
   });
 
   $("#youtubeSearchForm").addEventListener("submit", async (event) => {
@@ -195,7 +206,18 @@ function bindControls() {
   $("#applyVolumeToAllBtn")?.addEventListener("click", applyCurrentVolumeToAllPreparedTracks);
   $("#addPreparedTrackBtn")?.addEventListener("click", addPreparedTrackFromCurrent);
   $("#startPlaylistBtn")?.addEventListener("click", startPreparedPlaylist);
-  $("#loadNextTrackBtn")?.addEventListener("click", () => prepareNextPlaylistTrack(currentRound.playlistIndex ?? currentPreparedIndex));
+  $("#startCurrentTrackBtn")?.addEventListener("click", startCurrentPreparedTrack);
+  $("#loadNextTrackBtn")?.addEventListener("click", () => prepareNextPlaylistTrack(getPlaylistBaseIndex(), { manual: true }));
+  $("#playlistAutoPlayInput")?.addEventListener("change", () => {
+    localStorage.setItem(playlistAutoPlayStorageKey, $("#playlistAutoPlayInput").checked ? "1" : "0");
+    setStatus(
+      $("#playlistStatus"),
+      $("#playlistAutoPlayInput").checked
+        ? "Lecture automatique activée : à la fin d’une manche, le morceau suivant sera lancé tout seul."
+        : "Lecture automatique désactivée : le morceau suivant sera seulement préchargé, prêt à lancer.",
+      "success"
+    );
+  });
   $("#clearPlaylistBtn")?.addEventListener("click", clearPreparedTracks);
 }
 
@@ -278,6 +300,16 @@ function savePreparedTracks() {
   renderPreparedTracks();
 }
 
+function isPlaylistAutoPlayEnabled() {
+  return $("#playlistAutoPlayInput")?.checked === true;
+}
+
+function getPlaylistBaseIndex() {
+  const roundIndex = Number(currentRound?.playlistIndex);
+  if (Number.isFinite(roundIndex) && roundIndex >= 0) return roundIndex;
+  return currentPreparedIndex;
+}
+
 function trackFromCurrent() {
   const videoId = selectedVideo.videoId || extractYouTubeId($("#youtubeUrlInput").value);
   if (!videoId) throw new Error("Sélectionne ou colle une vidéo YouTube avant d’ajouter le morceau.");
@@ -352,10 +384,26 @@ async function startPreparedPlaylist() {
   }
   const index = currentPreparedIndex >= 0 ? currentPreparedIndex : 0;
   await loadPreparedTrack(index, true);
-  await startRound({ playlistIndex: index, playlistTrackId: preparedTracks[index]?.id || "" });
+  await startCurrentPreparedTrack();
 }
 
-async function prepareNextPlaylistTrack(fromIndex = -1) {
+async function startCurrentPreparedTrack() {
+  if (!preparedTracks.length) {
+    setStatus($("#playlistStatus"), "Ajoute au moins un morceau dans la liste.", "error");
+    return false;
+  }
+  const index = currentPreparedIndex >= 0 ? currentPreparedIndex : 0;
+  if (!preparedTracks[index]) {
+    setStatus($("#playlistStatus"), "Aucun morceau prêt à lancer.", "error");
+    return false;
+  }
+  await loadPreparedTrack(index, true);
+  await startRound({ playlistIndex: index, playlistTrackId: preparedTracks[index]?.id || "" });
+  setStatus($("#playlistStatus"), `Morceau ${index + 1}/${preparedTracks.length} lancé : ${preparedTracks[index].artist} — ${preparedTracks[index].title}.`, "success");
+  return true;
+}
+
+async function prepareNextPlaylistTrack(fromIndex = -1, options = {}) {
   const base = Number.isFinite(Number(fromIndex)) ? Number(fromIndex) : -1;
   const nextIndex = base + 1;
   if (!preparedTracks[nextIndex]) {
@@ -363,8 +411,22 @@ async function prepareNextPlaylistTrack(fromIndex = -1) {
     return false;
   }
   await loadPreparedTrack(nextIndex, true);
-  setStatus($("#playlistStatus"), `Morceau suivant préchargé : ${preparedTracks[nextIndex].artist} — ${preparedTracks[nextIndex].title}.`, "success");
-  return true;
+  const suffix = isPlaylistAutoPlayEnabled() && !options.manual
+    ? "Lecture automatique activée."
+    : "Il est prêt : clique sur “Lancer le morceau prêt” ou sur Lecture.";
+  setStatus($("#playlistStatus"), `Morceau suivant préchargé : ${preparedTracks[nextIndex].artist} — ${preparedTracks[nextIndex].title}. ${suffix}`, "success");
+  return nextIndex;
+}
+
+async function handlePlaylistAfterRoundEnd(fromIndex) {
+  if (!currentRound?.roundId || autoAdvanceRoundId === currentRound.roundId) return;
+  autoAdvanceRoundId = currentRound.roundId;
+  const nextIndex = await prepareNextPlaylistTrack(fromIndex);
+  if (nextIndex === false) return;
+  if (!isPlaylistAutoPlayEnabled()) return;
+  await new Promise((resolve) => window.setTimeout(resolve, 1200));
+  if (!preparedTracks[nextIndex] || currentPreparedIndex !== nextIndex) return;
+  await startCurrentPreparedTrack();
 }
 
 function renderPreparedTracks() {
@@ -745,9 +807,10 @@ async function startRound(options = {}) {
         ytPlayer.playVideo();
       }
     }
-    autoPausedRoundId = "";
+      autoPausedRoundId = "";
     autoFinishRoundId = "";
     autoProcessingAnswerId = "";
+    autoAdvanceRoundId = "";
     await update(ref(db, roomPath(roomId)), {
       currentRound: payload,
       "private/currentRoundSecret": {
@@ -787,7 +850,9 @@ async function revealRound(reason = "manual") {
     endReason: reason
   });
   ytPlayer?.pauseVideo?.();
-  if (playlistIndex >= 0) prepareNextPlaylistTrack(playlistIndex);
+  if (playlistIndex >= 0) handlePlaylistAfterRoundEnd(playlistIndex).catch((error) => {
+    setStatus($("#playlistStatus"), error.message || "Impossible de préparer le morceau suivant.", "error");
+  });
 }
 
 async function resetRound() {
@@ -890,7 +955,9 @@ async function awardAnswerParts(answerId, parts, options = {}) {
   const labels = cleanParts.map(partLabel).join(" + ");
   if (complete) {
     ytPlayer?.pauseVideo?.();
-    if (currentRound.playlistIndex >= 0) prepareNextPlaylistTrack(currentRound.playlistIndex);
+    if (currentRound.playlistIndex >= 0) handlePlaylistAfterRoundEnd(currentRound.playlistIndex).catch((error) => {
+      setStatus($("#playlistStatus"), error.message || "Impossible de préparer le morceau suivant.", "error");
+    });
     setStatus($("#roundStatus"), `${labels} trouvé${cleanParts.length > 1 ? "s" : ""} : manche terminée et réponse révélée.`, "success");
   } else {
     setStatus($("#roundStatus"), `${labels} trouvé${cleanParts.length > 1 ? "s" : ""} : +${newPoints} point${newPoints > 1 ? "s" : ""}. La manche continue.`, "success");

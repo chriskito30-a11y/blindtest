@@ -241,3 +241,6 @@ button:disabled { opacity: .48; cursor: not-allowed; transform: none; }
   .api-key-actions > *, .api-help-actions > * { width: 100%; }
   .modal-head { align-items: stretch; }
 }
+
+.playlist-autoplay-toggle { gap: 8px; align-items: center; }
+.playlist-autoplay-toggle input { width: auto; }
