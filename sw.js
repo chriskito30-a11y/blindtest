@@ -1,4 +1,4 @@
-const CACHE_NAME = "blindtest-master-pwa-v12-reset-round-number";
+const CACHE_NAME = "blindtest-master-pwa-v12-reset-round-number-modulys-auth";
 const APP_SHELL = [
   "./",
   "./index.html",
@@ -9,6 +9,7 @@ const APP_SHELL = [
   "./offline.html",
   "./style.css",
   "./firebase-config.js",
+  "./modulys-access.js",
   "./core.js",
   "./index.js",
   "./settings.js",
