@@ -311,7 +311,7 @@ export async function hashRoomPassword(roomId, password, salt) {
   return sha256(`${normalizeRoomId(roomId)}|blindtest-master|${salt}|${password}`);
 }
 
-export async function ensureRoom(roomId, password) {
+export async function ensureRoom(roomId, password, options = {}) {
   const clean = normalizeRoomId(roomId);
   if (!clean) throw new Error("Choisis un nom de partie valide.");
   if (!password || password.length < 4) throw new Error("Choisis un mot de passe arbitre d'au moins 4 caractères.");
@@ -321,13 +321,15 @@ export async function ensureRoom(roomId, password) {
   if (snap.exists()) return { roomId: clean, created: false };
 
   const now = Date.now();
+  const moduleMeta = typeof options.getCreateMeta === "function" ? await options.getCreateMeta(clean) : {};
   const salt = makeSalt();
   const passwordHash = await hashRoomPassword(clean, password, salt);
   const teamA = "equipe-rouge";
   const teamB = "equipe-bleue";
 
   await set(roomRef, {
-    config: { ...DEFAULT_CONFIG, updatedAt: now },
+    ...moduleMeta,
+    config: { ...DEFAULT_CONFIG, participantsLimit: Number(moduleMeta?.limits?.participantsPerEvent ?? 30), updatedAt: now },
     teams: {
       [teamA]: { name: "Équipe Rouge", color: TEAM_COLORS[0], score: 0, createdAt: now },
       [teamB]: { name: "Équipe Bleue", color: TEAM_COLORS[2], score: 0, createdAt: now + 1 }

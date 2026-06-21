@@ -1,4 +1,4 @@
-import { enforceModuleAccess } from "./modulys-access.js";
+import { enforceModuleAccess, assertCanCreateModuleEvent, buildModuleEntityMeta, recordModuleEventUsage } from "./modulys-access.js";
 import { $, normalizeRoomId, randomRoomId, ensureRoom, verifyRoomPassword, rememberPassword, publicUrl, setStatus } from "./core.js";
 const __modulysAccessOk = await enforceModuleAccess("blindtestmaster", { mode: "hard" });
 if (!__modulysAccessOk) throw new Error("Modulys access denied");
@@ -31,7 +31,14 @@ form.addEventListener("submit", async (event) => {
     const hasAccess = await moduleAccessReady;
     if (!hasAccess) throw new Error("Accès Modulys indisponible pour ce module.");
 
-    const result = await ensureRoom(roomId, password);
+    let usageContext = null;
+    const result = await ensureRoom(roomId, password, {
+      getCreateMeta: async () => {
+        usageContext = await assertCanCreateModuleEvent("blindtestmaster");
+        return buildModuleEntityMeta(usageContext);
+      }
+    });
+    if (result.created) await recordModuleEventUsage("blindtestmaster", roomId, usageContext);
     if (!result.created) {
       const ok = await verifyRoomPassword(roomId, password);
       if (!ok) throw new Error("Cette partie existe déjà, mais le mot de passe est incorrect.");

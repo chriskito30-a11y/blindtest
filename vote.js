@@ -210,6 +210,15 @@ async function joinPlayer(event) {
   }
 
   const existing = await get(ref(db, roomPath(roomId, `players/${playerId}`)));
+  const participantLimit = Number(config.participantsLimit ?? 30);
+  if (!existing.exists() && participantLimit > 0) {
+    const playersSnap = await get(ref(db, roomPath(roomId, "players")));
+    const playersCount = Object.keys(playersSnap.val() || {}).length;
+    if (playersCount >= participantLimit) {
+      setStatus($("joinStatus"), `Limite gratuite atteinte : ${participantLimit} participant(s) maximum pour cette partie.`, "error");
+      return;
+    }
+  }
   const existingScore = Number(existing.val()?.score || 0);
   const payload = {
     id: playerId,
