@@ -31,6 +31,10 @@ import {
   clampDuration,
   setStatus
 } from "./core.js";
+import { enforceModuleAccess } from "./modulys-access.js";
+const __modulysAccessOk = await enforceModuleAccess("blindtestmaster", { mode: "hard" });
+if (!__modulysAccessOk) throw new Error("Modulys access denied");
+
 
 const roomId = getRoomIdFromUrl();
 let config = safeConfig();

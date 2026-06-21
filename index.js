@@ -1,12 +1,15 @@
 import { enforceModuleAccess } from "./modulys-access.js";
 import { $, normalizeRoomId, randomRoomId, ensureRoom, verifyRoomPassword, rememberPassword, publicUrl, setStatus } from "./core.js";
+const __modulysAccessOk = await enforceModuleAccess("blindtestmaster", { mode: "hard" });
+if (!__modulysAccessOk) throw new Error("Modulys access denied");
+
 
 const roomInput = $("#roomInput");
 const passwordInput = $("#passwordInput");
 const form = $("#roomForm");
 const randomBtn = $("#randomRoomBtn");
 const status = $("#status");
-const moduleAccessReady = enforceModuleAccess("blindtestmaster", { mode: "soft" });
+const moduleAccessReady = Promise.resolve(true);
 
 roomInput.value = randomRoomId();
 
