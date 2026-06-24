@@ -3,17 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>BlindTest Master</title>
-  <meta name="description" content="PWA de blind test live avec équipes, réponses téléphone, écran vidéoprojecteur et lecteur YouTube côté arbitre." />
+  <title>BlindTestMaster — Modulys</title>
+  <meta name="description" content="L’organisateur pilote les manches, les joueurs répondent depuis leur téléphone et le classement se met à jour en direct." />
   <meta name="theme-color" content="#7c3aed" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
-  <meta name="apple-mobile-web-app-title" content="BlindTest" />
+  <meta name="apple-mobile-web-app-title" content="BlindTestMaster" />
   <link rel="manifest" href="./manifest.webmanifest" />
   <link rel="icon" type="image/png" sizes="32x32" href="./icons/favicon-32.png" />
-  <link rel="icon" type="image/png" sizes="16x16" href="./icons/favicon-16.png" />
-  <link rel="apple-touch-icon" sizes="180x180" href="./icons/icon-180.png" />
   <link rel="stylesheet" href="./style.css" />
 </head>
 <body class="app-bg">
@@ -22,29 +20,35 @@
       <a class="module-suite-brand" href="./index.html"><span class="module-suite-mark">🎵</span><span>BlindTestMaster</span></a>
       <div class="module-suite-actions">
         <a class="module-suite-btn" href="https://www.modulys.top/mes-modules.html">Mes modules</a>
+        <a class="module-suite-btn" href="https://www.modulys.top/">Modulys.top</a>
         <button id="modulysTopbarLogoutBtn" class="module-suite-btn module-suite-logout" type="button" hidden>Déconnexion</button>
       </div>
     </nav>
   </header>
   <main class="page-shell index-shell">
-    <section class="hero-card glow-card">
-      <p class="eyebrow">BlindTest Master</p>
-      <h1>Crée un blind test live avec équipes, téléphones et écran géant.</h1>
-      <p class="lead">L’arbitre lance les manches, les joueurs répondent depuis leur téléphone, les points vont aux équipes et le vidéoprojecteur affiche le chrono, le gagnant et le classement.</p>
+    <section class="hero-card glow-card suite-hero">
+      <p class="eyebrow">Module Modulys · Blind test live</p>
+      <h1>Animez un blind test fluide avec équipes et écran public.</h1>
+      <p class="lead">L’organisateur pilote les manches, les joueurs répondent depuis leur téléphone et le classement se met à jour en direct.</p>
+      <div class="suite-cta-row">
+        <a class="ghost-link big-btn" href="./demo.html">Voir une démo</a>
+        <a class="ghost-link big-btn" href="./vote.html">Rejoindre avec un code</a>
+        <a class="ghost-link big-btn" href="./screen.html">Afficher sur grand écran</a>
+      </div>
 
-      <form id="roomForm" class="form-grid big-form">
+      <form id="roomForm" class="form-grid big-form suite-create-form" aria-label="Créer une animation BlindTestMaster">
         <label>
-          <span>Nom de la partie</span>
-          <input id="roomInput" autocomplete="off" placeholder="ex : blind-test-fts" required />
-          <small>Utilisé dans les liens. Lettres, chiffres et tirets uniquement.</small>
+          <span>Nom du blind test</span>
+          <input id="roomInput" autocomplete="off" placeholder="ex : blind-test-ete" required />
+          <small>Ce nom sert à générer les liens joueurs et écran public.</small>
         </label>
         <label>
-          <span>Mot de passe arbitre</span>
-          <input id="passwordInput" type="password" autocomplete="new-password" placeholder="Pour admin et réglages" required minlength="4" />
-          <small>Il protège les pages arbitre et réglages. Les joueurs ne le voient pas.</small>
+          <span>Mot de passe organisateur</span>
+          <input id="passwordInput" type="password" autocomplete="new-password" placeholder="Mot de passe organisateur" required minlength="4" />
+          <small>Il protège les réglages et le pilotage du blind test.</small>
         </label>
         <div class="actions-row">
-          <button class="primary-btn" type="submit">Créer / ouvrir la partie</button>
+          <button class="primary-btn" type="submit">Créer un blind test</button>
           <button class="ghost-btn" type="button" id="randomRoomBtn">Nom aléatoire</button>
           <button class="ghost-btn install-pwa-btn" type="button" id="installPwaBtn" hidden>Installer l’app</button>
         </div>
@@ -52,15 +56,20 @@
       </form>
     </section>
 
-    <section class="feature-grid">
-      <article class="mini-card"><strong>1. Prépare</strong><span>Durée, points, équipes, liens privés ou QR codes par équipe.</span></article>
-      <article class="mini-card"><strong>2. Joue</strong><span>YouTube en iframe côté arbitre, timecode de départ et chrono synchronisé.</span></article>
-      <article class="mini-card"><strong>3. Projette</strong><span>Écran public avec classement, gagnant de la manche et révélation de la réponse.</span></article>
+    <section class="feature-grid suite-steps" aria-label="Comment ça marche">
+      <article class="mini-card"><strong>Étape 1</strong><span>Préparez les équipes, les points et vos extraits musicaux.</span></article><article class="mini-card"><strong>Étape 2</strong><span>Les joueurs rejoignent leur équipe depuis leur téléphone.</span></article><article class="mini-card"><strong>Étape 3</strong><span>Projetez le chrono, la réponse et le classement.</span></article>
+    </section>
+
+    <section class="suite-section suite-grid-2" aria-label="Cas d’usage et offre">
+      <article class="mini-card suite-card"><strong>Cas d’usage</strong><span>Soirée musicale · EVG / EVJF · Animation associative · Team building</span></article>
+      <article class="mini-card suite-card"><strong>Offre actuelle</strong><span>Offre Découverte : 1 animation par mois, jusqu’à 30 participants.</span></article>
     </section>
   </main>
 
   <footer class="app-credit" aria-label="Crédits de l'application">
-    <span>© 2026 — Application créée par Christophe Gros - <a href="https://www.faistonshow.fr" target="_blank" rel="noopener">Fais Ton Show</a></span>
+    <span>© 2026 — Modulys · BlindTestMaster</span>
+    <span class="credit-separator" aria-hidden="true">•</span>
+    <a href="https://www.modulys.top/">Retour Modulys.top</a>
   </footer>
 
   <script type="module" src="./index.js"></script>

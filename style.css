@@ -425,3 +425,22 @@ input:focus, select:focus, textarea:focus {
   .module-suite-actions { display: grid; grid-template-columns: 1fr; width: 100%; }
   .module-suite-btn { width: 100%; text-align: center; }
 }
+
+
+/* P1 — structure commune Modulys */
+.suite-hero { display: grid; gap: 20px; }
+.suite-cta-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.suite-create-form { margin-top: 8px; }
+.suite-section { margin-top: 18px; }
+.suite-grid-2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.suite-card { min-height: 100%; }
+.suite-demo-screen { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin: 18px 0; }
+.suite-demo-screen > div { display: grid; gap: 6px; padding: 16px; border: 1px solid rgba(255,255,255,.14); border-radius: 18px; background: rgba(255,255,255,.08); }
+.suite-demo-screen strong { color: white; }
+.suite-demo-screen span { color: var(--muted); line-height: 1.55; }
+.suite-demo-grid { margin-top: 18px; }
+@media (max-width: 760px) {
+  .suite-grid-2, .suite-demo-screen { grid-template-columns: 1fr; }
+  .suite-cta-row { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .suite-cta-row > * { width: 100%; text-align: center; justify-content: center; }
+}
