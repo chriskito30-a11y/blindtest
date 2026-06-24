@@ -19,6 +19,7 @@ import {
   qrCodeUrl,
   copyToClipboard,
   setStatus,
+  friendlyErrorMessage,
   normalizeTeamId,
   TEAM_COLORS
 } from "./core.js";
@@ -179,7 +180,7 @@ $("#settingsForm")?.addEventListener("submit", async (event) => {
     });
     setStatus(saveStatus, "Réglages enregistrés.", "success");
   } catch (error) {
-    setStatus(saveStatus, error.message || "Erreur lors de l'enregistrement.", "error");
+    setStatus(saveStatus, friendlyErrorMessage(error, "Erreur lors de l'enregistrement."), "error");
   }
 });
 
@@ -193,7 +194,7 @@ $("#teamForm")?.addEventListener("submit", async (event) => {
     $("#teamNameInput").value = "";
     setStatus(teamStatus, "Équipe ajoutée.", "success");
   } catch (error) {
-    setStatus(teamStatus, error.message || "Impossible d'ajouter l'équipe.", "error");
+    setStatus(teamStatus, friendlyErrorMessage(error, "Impossible d'ajouter l'équipe."), "error");
   }
 });
 
@@ -266,7 +267,7 @@ function renderTeams() {
         await deleteTeam(roomId, team.id);
         setStatus(teamStatus, "Équipe supprimée.", "success");
       } catch (error) {
-        setStatus(teamStatus, error.message || "Suppression impossible.", "error");
+        setStatus(teamStatus, friendlyErrorMessage(error, "Suppression impossible."), "error");
       }
     });
 

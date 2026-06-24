@@ -30,6 +30,15 @@ export const TEAM_COLORS = [
   "#a3e635"
 ];
 
+export function friendlyErrorMessage(error, fallback = "Une erreur est survenue, veuillez réessayer.") {
+  const raw = String(error?.message || "");
+  const code = String(error?.code || "").toLowerCase();
+  if (code.includes("permission-denied") || /permission_denied|permission denied|missing or insufficient/i.test(raw)) return "Accès non autorisé.";
+  if (code.includes("unauthenticated")) return "Connexion nécessaire.";
+  const technical = /firebase|internal|bad request|cannot read properties|undefined|null|quota/i.test(raw);
+  return technical ? fallback : (raw || fallback);
+}
+
 export function $(selector, root = document) {
   return root.querySelector(selector);
 }

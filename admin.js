@@ -29,11 +29,12 @@ import {
   foundPartsSummary,
   defaultRound,
   clampDuration,
+  friendlyErrorMessage,
   setStatus
 } from "./core.js";
 import { enforceModuleAccess } from "./modulys-access.js";
 const __modulysAccessOk = await enforceModuleAccess("blindtestmaster", { mode: "hard" });
-if (!__modulysAccessOk) throw new Error("Modulys access denied");
+if (!__modulysAccessOk) throw new Error("Accès non autorisé");
 
 
 const roomId = getRoomIdFromUrl();
@@ -539,7 +540,7 @@ function addPreparedTrackFromCurrent() {
     savePreparedTracks();
     setStatus($("#playlistStatus"), `Morceau ajouté : ${track.artist} — ${track.title}.`, "success");
   } catch (error) {
-    setStatus($("#playlistStatus"), error.message || "Impossible d’ajouter le morceau.", "error");
+    setStatus($("#playlistStatus"), friendlyErrorMessage(error, "Impossible d’ajouter le morceau."), "error");
   }
 }
 
@@ -866,7 +867,7 @@ async function searchYoutube() {
     setStatus($("#youtubeStatus"), `${items.length} résultat${items.length > 1 ? "s" : ""}.`, "success");
     renderYoutubeResults(items);
   } catch (error) {
-    setStatus($("#youtubeStatus"), `${error.message || "Recherche impossible"}. Vérifie la clé API et les restrictions HTTP.`, "error");
+    setStatus($("#youtubeStatus"), `${friendlyErrorMessage(error, "Recherche impossible")}. Vérifie la clé API et les restrictions HTTP.`, "error");
   }
 }
 
@@ -1145,7 +1146,7 @@ async function startRound(options = {}) {
     setStatus($("#roundStatus"), "Manche lancée.", "success");
     return payload;
   } catch (error) {
-    setStatus($("#roundStatus"), error.message || "Impossible de lancer la manche.", "error");
+    setStatus($("#roundStatus"), friendlyErrorMessage(error, "Impossible de lancer la manche."), "error");
     return false;
   }
 }
@@ -1158,7 +1159,7 @@ async function closeRound() {
   await update(ref(db, roomPath(roomId, "currentRound")), { active: false, status: "closed" });
   ytPlayer?.pauseVideo?.();
   if (playlistIndex >= 0) handlePlaylistAfterRoundEnd(playlistIndex, roundId).catch((error) => {
-    setStatus($("#playlistStatus"), error.message || "Impossible de préparer le morceau suivant.", "error");
+    setStatus($("#playlistStatus"), friendlyErrorMessage(error, "Impossible de préparer le morceau suivant."), "error");
   });
 }
 
@@ -1180,7 +1181,7 @@ async function revealRound(reason = "manual") {
   });
   ytPlayer?.pauseVideo?.();
   if (playlistIndex >= 0) handlePlaylistAfterRoundEnd(playlistIndex, roundId).catch((error) => {
-    setStatus($("#playlistStatus"), error.message || "Impossible de préparer le morceau suivant.", "error");
+    setStatus($("#playlistStatus"), friendlyErrorMessage(error, "Impossible de préparer le morceau suivant."), "error");
   });
 }
 
@@ -1327,7 +1328,7 @@ async function awardAnswerParts(answerId, parts, options = {}) {
       ? Number(currentRound.playlistIndex)
       : activePlaylistRoundIndex;
     if (playlistIndex >= 0) handlePlaylistAfterRoundEnd(playlistIndex, currentRound.roundId || activePlaylistRoundId).catch((error) => {
-      setStatus($("#playlistStatus"), error.message || "Impossible de préparer le morceau suivant.", "error");
+      setStatus($("#playlistStatus"), friendlyErrorMessage(error, "Impossible de préparer le morceau suivant."), "error");
     });
     setStatus($("#roundStatus"), `${labels} trouvé${cleanParts.length > 1 ? "s" : ""} : manche terminée et réponse révélée.`, "success");
   } else {
@@ -1426,7 +1427,7 @@ function maybeAutoFinishRound(open, expired) {
     if (!answer) return;
     autoProcessingAnswerId = answer.id;
     awardDetectedParts(answer.id, { auto: true }).catch((error) => {
-      setStatus($("#roundStatus"), error.message || "Auto-validation impossible.", "error");
+      setStatus($("#roundStatus"), friendlyErrorMessage(error, "Auto-validation impossible."), "error");
     }).finally(() => {
       autoProcessingAnswerId = "";
     });
@@ -1437,7 +1438,7 @@ function maybeAutoFinishRound(open, expired) {
     autoFinishRoundId = currentRound.roundId;
     revealRound("timeout").catch((error) => {
       autoFinishRoundId = "";
-      setStatus($("#roundStatus"), error.message || "Révélation automatique impossible.", "error");
+      setStatus($("#roundStatus"), friendlyErrorMessage(error, "Révélation automatique impossible."), "error");
     });
   }
 }

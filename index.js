@@ -1,7 +1,7 @@
 import { enforceModuleAccess, assertCanCreateModuleEvent, buildModuleEntityMeta, recordModuleEventUsage, isFreeLimitError, renderFreeLimitUpgrade } from "./modulys-access.js";
-import { $, normalizeRoomId, randomRoomId, ensureRoom, verifyRoomPassword, rememberPassword, publicUrl, setStatus } from "./core.js";
+import { $, normalizeRoomId, randomRoomId, ensureRoom, verifyRoomPassword, rememberPassword, publicUrl, setStatus, friendlyErrorMessage } from "./core.js";
 const __modulysAccessOk = await enforceModuleAccess("blindtestmaster", { mode: "hard" });
-if (!__modulysAccessOk) throw new Error("Modulys access denied");
+if (!__modulysAccessOk) throw new Error("Accès non autorisé");
 
 
 const roomInput = $("#roomInput");
@@ -48,6 +48,6 @@ form.addEventListener("submit", async (event) => {
     window.location.href = publicUrl("settings.html", roomId);
   } catch (error) {
     if (isFreeLimitError(error) && renderFreeLimitUpgrade(status, "blindtestmaster", error)) return;
-    setStatus(status, error.message || "Impossible d'ouvrir la partie.", "error");
+    setStatus(status, friendlyErrorMessage(error, "Impossible d'ouvrir la partie."), "error");
   }
 });

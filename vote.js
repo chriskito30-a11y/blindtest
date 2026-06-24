@@ -17,6 +17,7 @@ import {
   createTeam,
   answerModeLabel,
   setStatus,
+  friendlyErrorMessage,
   renderOption
 } from "./core.js";
 
@@ -160,7 +161,7 @@ async function createPlayerTeam() {
     renderTeamCreateBox();
     setStatus($("#joinStatus"), "Équipe créée et sélectionnée. Tu peux rejoindre la partie.", "success");
   } catch (error) {
-    setStatus($("#joinStatus"), error.message || "Impossible de créer l'équipe.", "error");
+    setStatus($("#joinStatus"), friendlyErrorMessage(error, "Impossible de créer l'équipe."), "error");
   }
 }
 
@@ -200,7 +201,7 @@ async function joinPlayer(event) {
   try {
     team = await resolveTeamForJoin();
   } catch (error) {
-    setStatus($("#joinStatus"), error.message || "Impossible de créer l'équipe.", "error");
+    setStatus($("#joinStatus"), friendlyErrorMessage(error, "Impossible de créer l'équipe."), "error");
     return;
   }
 
@@ -215,7 +216,7 @@ async function joinPlayer(event) {
     const playersSnap = await get(ref(db, roomPath(roomId, "players")));
     const playersCount = Object.keys(playersSnap.val() || {}).length;
     if (playersCount >= participantLimit) {
-      setStatus($("joinStatus"), `Limite gratuite atteinte : ${participantLimit} participant(s) maximum pour cette partie.`, "error");
+      setStatus($("#joinStatus"), `Limite incluse atteinte : ${participantLimit} participant(s) maximum pour cette partie.`, "error");
       return;
     }
   }
