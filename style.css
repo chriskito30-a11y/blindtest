@@ -343,3 +343,85 @@ input:focus, select:focus, textarea:focus {
   .page-shell, .vote-shell, .screen-shell { width: min(100% - 20px, 1240px) !important; }
   .hero-card, .panel-card, .vote-card, .screen-card { border-radius: 22px !important; }
 }
+
+
+/* Suite Modulys navigation */
+.module-suite-header {
+  position: sticky;
+  top: 0;
+  z-index: 60;
+  border-bottom: 1px solid rgba(226, 232, 240, .78);
+  background: rgba(255, 255, 255, .88);
+  color: #111827;
+  backdrop-filter: blur(16px);
+  box-shadow: 0 10px 30px rgba(15, 23, 42, .08);
+}
+.module-suite-nav {
+  width: min(1240px, calc(100vw - 32px));
+  min-height: 72px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+.module-suite-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #111827;
+  text-decoration: none;
+  font-weight: 950;
+  letter-spacing: -.04em;
+  font-size: 1.18rem;
+}
+.module-suite-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, #7c3aed, #06b6d4);
+  color: #fff;
+  box-shadow: 0 12px 30px rgba(124, 58, 237, .24);
+}
+.module-suite-actions {
+  display: flex;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.module-suite-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 11px 16px;
+  border-radius: 999px;
+  border: 1px solid #ddd6fe;
+  background: #fff;
+  color: #7c3aed;
+  font: inherit;
+  font-weight: 950;
+  text-decoration: none;
+  cursor: pointer;
+  box-shadow: none;
+}
+.module-suite-btn:hover { transform: translateY(-1px); filter: none; }
+.module-suite-logout {
+  border-color: transparent;
+  background: transparent;
+  color: #64748b;
+}
+.module-suite-logout[hidden] { display: none; }
+@media (max-width: 640px) {
+  .module-suite-nav {
+    width: min(100vw - 20px, 1240px);
+    min-height: auto;
+    align-items: stretch;
+    flex-direction: column;
+    padding: 12px 0;
+  }
+  .module-suite-actions { display: grid; grid-template-columns: 1fr; width: 100%; }
+  .module-suite-btn { width: 100%; text-align: center; }
+}
